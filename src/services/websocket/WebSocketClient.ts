@@ -24,6 +24,8 @@ export class WebSocketClient {
     scrollDx: 0,
     scrollDy: 0,
     clicks: 0,
+    keyboardTexts: 0,
+    keyboardKeys: 0,
   };
 
   connect(url: string): void {
@@ -174,6 +176,12 @@ export class WebSocketClient {
       case 'mouse.click':
         this.diagnostics.clicks += 1;
         break;
+      case 'keyboard.text':
+        this.diagnostics.keyboardTexts += 1;
+        break;
+      case 'keyboard.key':
+        this.diagnostics.keyboardKeys += 1;
+        break;
     }
 
     if (now - this.diagnosticsStartedAt < APP_CONFIG.diagnosticsIntervalMs) return;
@@ -193,6 +201,8 @@ export class WebSocketClient {
     this.diagnostics.scrollDx = 0;
     this.diagnostics.scrollDy = 0;
     this.diagnostics.clicks = 0;
+    this.diagnostics.keyboardTexts = 0;
+    this.diagnostics.keyboardKeys = 0;
   }
 
   private clearTimers(): void {

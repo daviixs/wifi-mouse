@@ -1,6 +1,6 @@
-use enigo::{Axis, Button, Coordinate, Direction, Enigo, InputResult, Mouse};
+use enigo::{Axis, Button, Coordinate, Direction, Enigo, InputResult, Key, Keyboard, Mouse};
 
-use crate::protocol::{MouseButton, MouseCommand};
+use crate::protocol::{KeyboardKey, MouseButton, MouseCommand};
 
 const MAX_DELTA: f64 = 4096.0;
 #[cfg(target_os = "windows")]
@@ -63,8 +63,26 @@ impl MouseController {
                     scroll(&mut self.mouse, &mut self.scroll_remainder, dx, dy)
                 }
             }
+            MouseCommand::KeyboardText { payload, .. } => {
+                apply_keyboard_text(&mut self.mouse, &payload.text)
+            }
+            MouseCommand::KeyboardKey { payload, .. } => {
+                apply_keyboard_key(&mut self.mouse, payload.key)
+            }
         }
     }
+}
+
+fn apply_keyboard_text(keyboard: &mut impl Keyboard, text: &str) -> InputResult<()> {
+    keyboard.text(text)
+}
+
+fn apply_keyboard_key(keyboard: &mut impl Keyboard, key: KeyboardKey) -> InputResult<()> {
+    let key = match key {
+        KeyboardKey::Backspace => Key::Backspace,
+        KeyboardKey::Enter => Key::Return,
+    };
+    keyboard.key(key, Direction::Click)
 }
 
 fn to_delta(value: f64) -> i32 {
@@ -73,6 +91,47 @@ fn to_delta(value: f64) -> i32 {
 
 fn to_bounded(value: f64) -> f64 {
     value.clamp(-MAX_DELTA, MAX_DELTA)
+}
+
+#[cfg(test)]
+mod tests {
+    use enigo::{Direction, InputError, InputResult, Key, Keyboard};
+
+    use super::{apply_keyboard_key, apply_keyboard_text};
+    use crate::protocol::KeyboardKey;
+
+    #[derive(Default)]
+    struct RecordingKeyboard {
+        text: Vec<String>,
+        keys: Vec<Key>,
+    }
+
+    impl Keyboard for RecordingKeyboard {
+        fn key(&mut self, key: Key, _direction: Direction) -> InputResult<()> {
+            self.keys.push(key);
+            Ok(())
+        }
+
+        fn raw(&mut self, _keycode: u16, _direction: Direction) -> InputResult<()> {
+            Ok(())
+        }
+
+        fn fast_text(&mut self, text: &str) -> Result<Option<()>, InputError> {
+            self.text.push(text.to_owned());
+            Ok(Some(()))
+        }
+    }
+
+    #[test]
+    fn applies_unicode_text_and_special_keys_to_keyboard() {
+        let mut keyboard = RecordingKeyboard::default();
+        apply_keyboard_text(&mut keyboard, "Olá 👋").unwrap();
+        apply_keyboard_key(&mut keyboard, KeyboardKey::Backspace).unwrap();
+        apply_keyboard_key(&mut keyboard, KeyboardKey::Enter).unwrap();
+
+        assert_eq!(keyboard.text, ["Olá 👋"]);
+        assert_eq!(keyboard.keys, [Key::Backspace, Key::Return]);
+    }
 }
 
 #[cfg(target_os = "macos")]

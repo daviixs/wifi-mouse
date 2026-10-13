@@ -10,21 +10,27 @@ import Animated, {
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { COLORS } from '../constants/config';
-import { addMotionDelta, createMotionCommand, type MotionKind } from '../services/mouse/motion';
+import {
+  addMotionDelta,
+  applyMotionSensitivity,
+  createMotionCommand,
+  type MotionKind,
+} from '../services/mouse/motion';
 import type { MouseCommand } from '../types/protocol';
 
-type TouchpadProps = { onCommand: (command: MouseCommand) => void };
+type TouchpadProps = { onCommand: (command: MouseCommand) => void; sensitivity: number };
 
-export function Touchpad({ onCommand }: TouchpadProps) {
+export function Touchpad({ onCommand, sensitivity }: TouchpadProps) {
   const pressed = useSharedValue(0);
   const pendingKind = useSharedValue<MotionKind | null>(null);
   const pendingDx = useSharedValue(0);
   const pendingDy = useSharedValue(0);
   const dispatchMotion = useCallback(
     (kind: MotionKind, dx: number, dy: number) => {
-      if (dx || dy) onCommand(createMotionCommand(kind, dx, dy));
+      const scaled = applyMotionSensitivity(kind, dx, dy, sensitivity);
+      if (scaled.dx || scaled.dy) onCommand(createMotionCommand(kind, scaled.dx, scaled.dy));
     },
-    [onCommand],
+    [onCommand, sensitivity],
   );
   const frameCallback = useFrameCallback(() => {
     const kind = pendingKind.get();
@@ -211,12 +217,12 @@ const styles = StyleSheet.create({
   title: { color: COLORS.text, fontSize: 12, fontWeight: '800', letterSpacing: 3 },
   hint: { color: COLORS.muted, fontSize: 11, letterSpacing: 0.1 },
   cornerLabel: {
-    bottom: 18,
     color: '#5d665f',
     fontSize: 9,
     fontWeight: '700',
     letterSpacing: 1.4,
     position: 'absolute',
     right: 20,
+    top: 18,
   },
 });

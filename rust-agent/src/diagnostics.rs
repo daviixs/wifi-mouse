@@ -16,6 +16,8 @@ enum CommandKind {
     Move,
     Click,
     Scroll,
+    KeyboardText,
+    KeyboardKey,
 }
 
 impl CommandMetrics {
@@ -36,6 +38,16 @@ impl CommandMetrics {
                 dx: payload.dx,
                 dy: payload.dy,
             },
+            MouseCommand::KeyboardText { .. } => Self {
+                kind: CommandKind::KeyboardText,
+                dx: 0.0,
+                dy: 0.0,
+            },
+            MouseCommand::KeyboardKey { .. } => Self {
+                kind: CommandKind::KeyboardKey,
+                dx: 0.0,
+                dy: 0.0,
+            },
         }
     }
 }
@@ -50,6 +62,8 @@ struct Window {
     scrolls: u64,
     scroll_dx: f64,
     scroll_dy: f64,
+    keyboard_texts: u64,
+    keyboard_keys: u64,
     apply_errors: u64,
     last_error: Option<String>,
     receive_to_apply: Duration,
@@ -99,6 +113,8 @@ impl AgentDiagnostics {
                 self.window.scroll_dx += command.dx;
                 self.window.scroll_dy += command.dy;
             }
+            CommandKind::KeyboardText => self.window.keyboard_texts += 1,
+            CommandKind::KeyboardKey => self.window.keyboard_keys += 1,
         }
 
         if let Some(error) = error {
@@ -131,7 +147,7 @@ impl AgentDiagnostics {
         };
 
         format!(
-            "[RemoteMouse][diag][agent] window_ms={window_ms} commands={} moves={} move_dx={:.2} move_dy={:.2} clicks={} scrolls={} scroll_dx={:.2} scroll_dy={:.2} receive_to_apply_avg_us={avg_receive_to_apply_us} receive_to_apply_max_us={} apply_avg_us={avg_apply_us} apply_max_us={} apply_errors={} last_error={}",
+            "[RemoteMouse][diag][agent] window_ms={window_ms} commands={} moves={} move_dx={:.2} move_dy={:.2} clicks={} scrolls={} scroll_dx={:.2} scroll_dy={:.2} keyboard_texts={} keyboard_keys={} receive_to_apply_avg_us={avg_receive_to_apply_us} receive_to_apply_max_us={} apply_avg_us={avg_apply_us} apply_max_us={} apply_errors={} last_error={}",
             window.commands,
             window.moves,
             window.move_dx,
@@ -140,6 +156,8 @@ impl AgentDiagnostics {
             window.scrolls,
             window.scroll_dx,
             window.scroll_dy,
+            window.keyboard_texts,
+            window.keyboard_keys,
             window.max_receive_to_apply.as_micros(),
             window.max_apply_time.as_micros(),
             window.apply_errors,
@@ -151,7 +169,10 @@ impl AgentDiagnostics {
 #[cfg(test)]
 mod tests {
     use super::{AgentDiagnostics, CommandMetrics};
-    use crate::protocol::{ClickPayload, Delta, MouseButton, MouseCommand};
+    use crate::protocol::{
+        ClickPayload, Delta, KeyboardKey, KeyboardKeyPayload, KeyboardTextPayload, MouseButton,
+        MouseCommand,
+    };
     use std::time::Duration;
 
     #[test]
@@ -177,11 +198,34 @@ mod tests {
             Duration::from_micros(300),
             Some("synthetic error".to_owned()),
         );
+        diagnostics.record(
+            CommandMetrics::from_command(&MouseCommand::KeyboardText {
+                version: 1,
+                payload: KeyboardTextPayload {
+                    text: "Olá".to_owned(),
+                },
+            }),
+            Duration::from_micros(100),
+            Duration::from_micros(80),
+            None,
+        );
+        diagnostics.record(
+            CommandMetrics::from_command(&MouseCommand::KeyboardKey {
+                version: 1,
+                payload: KeyboardKeyPayload {
+                    key: KeyboardKey::Enter,
+                },
+            }),
+            Duration::from_micros(100),
+            Duration::from_micros(80),
+            None,
+        );
 
         let report = diagnostics.take_report();
-        assert!(report.contains("commands=2 moves=1 move_dx=1.50 move_dy=-2.00 clicks=1"));
-        assert!(report.contains("apply_avg_us=200"));
-        assert!(report.contains("receive_to_apply_avg_us=200 receive_to_apply_max_us=280"));
+        assert!(report.contains("commands=4 moves=1 move_dx=1.50 move_dy=-2.00 clicks=1"));
+        assert!(report.contains("keyboard_texts=1 keyboard_keys=1"));
+        assert!(report.contains("apply_avg_us=140"));
+        assert!(report.contains("receive_to_apply_avg_us=150 receive_to_apply_max_us=280"));
         assert!(report.contains("apply_max_us=300 apply_errors=1 last_error=synthetic error"));
     }
 }

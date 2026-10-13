@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
@@ -7,14 +7,24 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/config';
 import { ConnectionStatus } from '../components/ConnectionStatus';
 import { MouseButton } from '../components/MouseButton';
+import { KeyboardModeControl } from '../components/KeyboardModeControl';
+import { SensitivityControl } from '../components/SensitivityControl';
 import { Touchpad } from '../components/Touchpad';
 import { useConnectionStore } from '../stores/connection.store';
+import { usePreferencesStore } from '../stores/preferences.store';
 import type { MouseCommand } from '../types/protocol';
 
 export default function TouchpadScreen() {
   const deviceName = useConnectionStore((state) => state.deviceName);
   const sendCommand = useConnectionStore((state) => state.sendCommand);
   const disconnect = useConnectionStore((state) => state.disconnect);
+  const sensitivity = usePreferencesStore((state) => state.sensitivity);
+  const setSensitivity = usePreferencesStore((state) => state.setSensitivity);
+  const hydratePreferences = usePreferencesStore((state) => state.hydrate);
+
+  useEffect(() => {
+    void hydratePreferences();
+  }, [hydratePreferences]);
 
   const sendClick = useCallback(
     (button: 'left' | 'right') => {
@@ -50,7 +60,9 @@ export default function TouchpadScreen() {
         </View>
 
         <View style={styles.touchArea}>
-          <Touchpad onCommand={sendCommand} />
+          <Touchpad onCommand={sendCommand} sensitivity={sensitivity} />
+          <SensitivityControl sensitivity={sensitivity} onChange={setSensitivity} />
+          <KeyboardModeControl onCommand={sendCommand} />
         </View>
 
         <View style={styles.controls}>
@@ -88,7 +100,7 @@ const styles = StyleSheet.create({
   },
   connectionBlock: { flex: 1, gap: 4 },
   deviceName: { color: COLORS.muted, fontSize: 11, maxWidth: 210 },
-  touchArea: { flex: 1, paddingBottom: 24, paddingTop: 18 },
+  touchArea: { flex: 1, paddingBottom: 24, paddingTop: 18, position: 'relative' },
   controls: { gap: 13, paddingBottom: 4 },
   controlHint: { alignItems: 'center', gap: 5, marginBottom: 2 },
   controlEyebrow: { color: COLORS.muted, fontSize: 9, fontWeight: '800', letterSpacing: 1.7 },

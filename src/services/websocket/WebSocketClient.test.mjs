@@ -70,6 +70,32 @@ test('sends a motion command immediately after the socket opens', () => {
   }
 });
 
+test('preserves text and key command order while the socket is connecting', () => {
+  const previousWebSocket = globalThis.WebSocket;
+  globalThis.WebSocket = MockWebSocket;
+  MockWebSocket.instances = [];
+
+  try {
+    const client = new WebSocketClient();
+    client.connect('ws://127.0.0.1:8765');
+    client.send({ version: 1, type: 'keyboard.text', payload: { text: 'Olá 👋' } });
+    client.send({ version: 1, type: 'keyboard.key', payload: { key: 'backspace' } });
+    client.send({ version: 1, type: 'keyboard.key', payload: { key: 'enter' } });
+
+    const socket = MockWebSocket.instances[0];
+    socket.open();
+
+    assert.deepEqual(socket.sent, [
+      { version: 1, type: 'keyboard.text', payload: { text: 'Olá 👋' } },
+      { version: 1, type: 'keyboard.key', payload: { key: 'backspace' } },
+      { version: 1, type: 'keyboard.key', payload: { key: 'enter' } },
+    ]);
+    client.disconnect();
+  } finally {
+    globalThis.WebSocket = previousWebSocket;
+  }
+});
+
 test('coalesces adjacent queued deltas while preserving click and gesture order', () => {
   const previousWebSocket = globalThis.WebSocket;
   globalThis.WebSocket = MockWebSocket;

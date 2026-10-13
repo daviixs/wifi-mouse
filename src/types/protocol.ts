@@ -16,4 +16,23 @@ export type MouseScrollCommand = {
   payload: { dx: number; dy: number };
 };
 
-export type MouseCommand = MouseMoveCommand | MouseClickCommand | MouseScrollCommand;
+export type KeyboardTextCommand = {
+  version: 1;
+  type: 'keyboard.text';
+  payload: { text: string };
+};
+
+export type KeyboardKey = 'backspace' | 'enter';
+
+export type KeyboardKeyCommand = {
+  version: 1;
+  type: 'keyboard.key';
+  payload: { key: KeyboardKey };
+};
+
+export type MouseCommand =
+  | MouseMoveCommand
+  | MouseClickCommand
+  | MouseScrollCommand
+  | KeyboardTextCommand
+  | KeyboardKeyCommand;

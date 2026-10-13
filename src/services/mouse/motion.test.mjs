@@ -8,7 +8,7 @@ import {
 } from '../../../scripts/transpile-test-modules.mjs';
 
 const outputRoot = transpileTestModules(['src/services/mouse/motion.ts']);
-const { addMotionDelta } = createRequire(import.meta.url)(
+const { addMotionDelta, applyMotionSensitivity } = createRequire(import.meta.url)(
   `${outputRoot}/src/services/mouse/motion.js`,
 );
 
@@ -27,6 +27,10 @@ test('accumulates every sampled delta without losing the final movement', () => 
   );
 
   assert.deepEqual(total, { dx: 0.8, dy: 0.7 });
+});
+
+test('scales cursor movement by the selected factor', () => {
+  assert.deepEqual(applyMotionSensitivity('mouse.move', 5, -2, 1.5), { dx: 7.5, dy: -3 });
 });
 
 test.after(cleanupTestModules);

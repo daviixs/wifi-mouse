@@ -5,6 +5,7 @@
   "dependencies": {
     "@expo/ui": "~57.0.22",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/slider": "5.2.0",
     "expo": "~57.0.27",
     "expo-build-properties": "~57.0.22",
     "expo-constants": "~57.0.21",
@@ -46,7 +47,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test:motion": "node --test src/services/mouse/motion.test.mjs src/services/websocket/WebSocketClient.test.mjs",
+    "test:motion": "node --test src/services/mouse/motion.test.mjs src/services/mouse/sensitivity.test.mjs src/services/mouse/sensitivityPersistence.test.mjs src/services/keyboard/textDiff.test.mjs src/services/websocket/WebSocketClient.test.mjs",
     "format": "prettier --write \"src/**/*.{ts,tsx}\" \"*.{json,js,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"*.{json,js,md}\""
   },

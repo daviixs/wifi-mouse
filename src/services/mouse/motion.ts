@@ -11,3 +11,14 @@ export function createMotionCommand(kind: MotionKind, dx: number, dy: number): M
   'worklet';
   return { version: 1, type: kind, payload: { dx, dy } };
 }
+
+export function applyMotionSensitivity(
+  kind: MotionKind,
+  dx: number,
+  dy: number,
+  sensitivity: number,
+): { dx: number; dy: number } {
+  'worklet';
+  if (kind !== 'mouse.move') return { dx, dy };
+  return { dx: dx * sensitivity, dy: dy * sensitivity };
+}
