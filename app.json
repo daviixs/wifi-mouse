@@ -1,20 +1,28 @@
 {
   "expo": {
-    "name": "wifi-mouse",
+    "name": "Remote Mouse",
     "slug": "wifi-mouse",
+    "description": "Use o celular como touchpad para computadores na mesma rede Wi-Fi.",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "wifimouse",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "bundleIdentifier": "com.davixavier.remotemouse",
+      "icon": "./assets/images/icon.png",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        },
+        "NSLocalNetworkUsageDescription": "O Remote Mouse encontra e controla computadores na mesma rede Wi-Fi."
+      }
     },
     "android": {
+      "package": "com.davixavier.remotemouse",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#101211",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
@@ -26,11 +34,19 @@
     "plugins": [
       "expo-router",
       [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#101211",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 144
         }
       ]
     ],
