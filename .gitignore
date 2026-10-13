@@ -2,6 +2,7 @@
 
 # dependencies
 node_modules/
+/rust-agent/target/
 
 # Expo
 .expo/
