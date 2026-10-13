@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Keyboard as KeyboardIcon, X } from 'lucide-react-native';
 
-import { COLORS } from '../constants/config';
+import { COLORS, RADIUS, SPACE } from '../theme/tokens';
 import { diffKeyboardText, splitKeyboardText } from '../services/keyboard/textDiff';
 import type { MouseCommand } from '../types/protocol';
 
@@ -95,12 +95,12 @@ export function KeyboardModeControl({ onCommand }: KeyboardModeControlProps) {
 
 const styles = StyleSheet.create({
   inputWrap: {
-    backgroundColor: COLORS.surfaceRaised,
+    backgroundColor: COLORS.surface,
     borderColor: COLORS.border,
-    borderRadius: 16,
+    borderRadius: RADIUS.medium,
     borderWidth: 1,
     left: 14,
-    paddingHorizontal: 14,
+    paddingHorizontal: SPACE.sm,
     position: 'absolute',
     right: 14,
     top: 14,
@@ -109,13 +109,13 @@ const styles = StyleSheet.create({
   input: { color: COLORS.text, fontSize: 15, height: 48 },
   button: {
     alignItems: 'center',
-    backgroundColor: COLORS.surfaceRaised,
+    backgroundColor: COLORS.surface,
     borderColor: COLORS.border,
-    borderRadius: 18,
+    borderRadius: RADIUS.large,
     borderWidth: 1,
     bottom: 14,
     flexDirection: 'row',
-    gap: 8,
+    gap: SPACE.xs,
     height: 48,
     justifyContent: 'center',
     minWidth: 112,
@@ -124,6 +124,6 @@ const styles = StyleSheet.create({
     right: 14,
     zIndex: 3,
   },
-  activeButton: { backgroundColor: COLORS.accentDark, borderColor: COLORS.accentDark },
+  activeButton: { backgroundColor: COLORS.highlight, borderColor: COLORS.border },
   buttonLabel: { color: COLORS.text, fontSize: 9, fontWeight: '800', letterSpacing: 1.1 },
 });

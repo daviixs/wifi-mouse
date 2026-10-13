@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { COLORS } from '../constants/config';
+import { COLORS, RADIUS, SPACE } from '../theme/tokens';
 
 type MouseButtonProps = {
   label: string;
@@ -29,20 +29,20 @@ export function MouseButton({ label, side, onPress }: MouseButtonProps) {
 const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
-    backgroundColor: COLORS.surfaceRaised,
+    backgroundColor: COLORS.surface,
     borderColor: COLORS.border,
     borderWidth: 1,
     flex: 1,
     flexDirection: 'row',
-    gap: 9,
+    gap: SPACE.xs,
     height: 62,
     justifyContent: 'center',
   },
-  left: { borderBottomLeftRadius: 22, borderTopLeftRadius: 22 },
-  right: { borderBottomRightRadius: 22, borderTopRightRadius: 22 },
-  pressed: { backgroundColor: '#2a302c', transform: [{ scale: 0.985 }] },
-  dot: { backgroundColor: COLORS.muted, borderRadius: 3, height: 5, width: 5 },
-  leftDot: { backgroundColor: COLORS.accent },
-  rightDot: { backgroundColor: '#bac1bb' },
+  left: { borderBottomLeftRadius: RADIUS.large, borderTopLeftRadius: RADIUS.large },
+  right: { borderBottomRightRadius: RADIUS.large, borderTopRightRadius: RADIUS.large },
+  pressed: { backgroundColor: COLORS.surfaceSubtle, transform: [{ scale: 0.985 }] },
+  dot: { backgroundColor: COLORS.muted, borderRadius: RADIUS.small, height: 5, width: 5 },
+  leftDot: { backgroundColor: COLORS.primary },
+  rightDot: { backgroundColor: COLORS.secondary },
   label: { color: COLORS.text, fontSize: 14, fontWeight: '600' },
 });

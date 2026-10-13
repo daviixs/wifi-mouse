@@ -9,7 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { COLORS } from '../constants/config';
+import { COLORS, RADIUS, SPACE } from '../theme/tokens';
 import {
   addMotionDelta,
   applyMotionSensitivity,
@@ -51,8 +51,8 @@ export function Touchpad({ onCommand, sensitivity }: TouchpadProps) {
   );
   const activateFrameCallback = useCallback(() => frameCallback.setActive(true), [frameCallback]);
   const animatedSurface = useAnimatedStyle(() => ({
-    borderColor: pressed.get() ? COLORS.accentDark : COLORS.border,
-    backgroundColor: pressed.get() ? '#1d241b' : COLORS.surface,
+    borderColor: pressed.get() ? COLORS.primary : COLORS.border,
+    backgroundColor: pressed.get() ? COLORS.surfaceSubtle : COLORS.surface,
     transform: [{ scale: withTiming(pressed.get() ? 0.997 : 1, { duration: 140 }) }],
   }));
 
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   surface: {
     alignItems: 'center',
     borderColor: COLORS.border,
-    borderRadius: 26,
+    borderRadius: RADIUS.large,
     borderWidth: 1,
     flex: 1,
     justifyContent: 'center',
@@ -198,31 +198,37 @@ const styles = StyleSheet.create({
   topLine: {
     backgroundColor: COLORS.accent,
     height: 2,
-    left: 24,
+    left: SPACE.xl,
     opacity: 0.6,
     position: 'absolute',
-    right: 24,
+    right: SPACE.xl,
     top: 0,
   },
-  labelBlock: { alignItems: 'center', gap: 12 },
+  labelBlock: { alignItems: 'center', gap: SPACE.sm },
   gestureGlyph: {
     alignItems: 'center',
     flexDirection: 'row',
     height: 36,
     justifyContent: 'center',
-    gap: 5,
+    gap: SPACE.xxs,
   },
-  finger: { backgroundColor: COLORS.accent, borderRadius: 8, height: 29, opacity: 0.8, width: 9 },
+  finger: {
+    backgroundColor: COLORS.accent,
+    borderRadius: RADIUS.small,
+    height: 29,
+    opacity: 0.8,
+    width: 9,
+  },
   secondFinger: { height: 22, opacity: 0.45 },
   title: { color: COLORS.text, fontSize: 12, fontWeight: '800', letterSpacing: 3 },
   hint: { color: COLORS.muted, fontSize: 11, letterSpacing: 0.1 },
   cornerLabel: {
-    color: '#5d665f',
+    color: COLORS.muted,
     fontSize: 9,
     fontWeight: '700',
     letterSpacing: 1.4,
     position: 'absolute',
-    right: 20,
+    right: SPACE.lg,
     top: 18,
   },
 });

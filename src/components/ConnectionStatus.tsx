@@ -1,7 +1,7 @@
 import { Circle, Wifi } from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { COLORS } from '../constants/config';
+import { COLORS } from '../theme/tokens';
 import { useConnectionStore } from '../stores/connection.store';
 
 const STATUS_LABELS = {

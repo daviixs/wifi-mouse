@@ -3,7 +3,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { Gauge } from 'lucide-react-native';
 
-import { COLORS } from '../constants/config';
+import { COLORS, RADIUS, SPACE } from '../theme/tokens';
 import {
   SENSITIVITY_MAX,
   SENSITIVITY_MIN,
@@ -60,11 +60,11 @@ export function SensitivityControl({ sensitivity, onChange }: SensitivityControl
               accessibilityLabel="Sensibilidade do cursor"
               maximumTrackTintColor={COLORS.border}
               maximumValue={SENSITIVITY_MAX}
-              minimumTrackTintColor={COLORS.accent}
+              minimumTrackTintColor={COLORS.primary}
               minimumValue={SENSITIVITY_MIN}
               onValueChange={onChange}
               step={SENSITIVITY_STEP}
-              thumbTintColor={COLORS.accent}
+              thumbTintColor={COLORS.primary}
               value={sensitivity}
             />
             <View style={styles.rangeLabels}>
@@ -84,13 +84,13 @@ export function SensitivityControl({ sensitivity, onChange }: SensitivityControl
 const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
-    backgroundColor: COLORS.surfaceRaised,
+    backgroundColor: COLORS.surface,
     borderColor: COLORS.border,
-    borderRadius: 18,
+    borderRadius: RADIUS.large,
     borderWidth: 1,
     bottom: 14,
     flexDirection: 'row',
-    gap: 8,
+    gap: SPACE.xs,
     height: 48,
     justifyContent: 'center',
     left: 14,
@@ -102,15 +102,15 @@ const styles = StyleSheet.create({
   buttonLabel: { color: COLORS.text, fontSize: 12, fontWeight: '800' },
   modalRoot: {
     alignItems: 'center',
-    backgroundColor: '#0009',
+    backgroundColor: 'rgba(23, 43, 54, 0.6)',
     flex: 1,
     justifyContent: 'center',
     padding: 24,
   },
   panel: {
-    backgroundColor: COLORS.surfaceRaised,
+    backgroundColor: COLORS.surface,
     borderColor: COLORS.border,
-    borderRadius: 22,
+    borderRadius: RADIUS.large,
     borderWidth: 1,
     gap: 22,
     maxWidth: 420,
@@ -121,15 +121,15 @@ const styles = StyleSheet.create({
   headingBlock: { gap: 6 },
   eyebrow: { color: COLORS.muted, fontSize: 9, fontWeight: '800', letterSpacing: 1.6 },
   heading: { color: COLORS.text, fontSize: 20, fontWeight: '700' },
-  value: { color: COLORS.accent, fontSize: 20, fontWeight: '800' },
+  value: { color: COLORS.primary, fontSize: 20, fontWeight: '800' },
   rangeLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -18 },
   rangeLabel: { color: COLORS.muted, fontSize: 8, fontWeight: '800', letterSpacing: 1 },
   doneButton: {
     alignItems: 'center',
-    backgroundColor: COLORS.accent,
-    borderRadius: 13,
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.medium,
     height: 46,
     justifyContent: 'center',
   },
-  doneLabel: { color: COLORS.background, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
+  doneLabel: { color: COLORS.surface, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
 });

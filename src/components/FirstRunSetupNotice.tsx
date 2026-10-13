@@ -4,7 +4,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Wifi } from 'lucide-react-native';
 
-import { COLORS } from '../constants/config';
+import { COLORS, RADIUS, SPACE } from '../theme/tokens';
 
 const NOTICE_STORAGE_KEY = '@remote-mouse/mac-accessibility-notice-v1';
 
@@ -52,7 +52,7 @@ export function FirstRunSetupNotice() {
           >
             <View style={styles.card}>
               <View style={styles.iconBadge}>
-                <Wifi color={COLORS.accent} size={21} strokeWidth={2} />
+                <Wifi color={COLORS.primary} size={21} strokeWidth={2} />
               </View>
               <Text style={styles.eyebrow}>ANTES DE CONECTAR</Text>
               <Text style={styles.title}>Uma etapa no Mac</Text>
@@ -110,63 +110,63 @@ function Step({ number, title, children }: StepProps) {
 
 const styles = StyleSheet.create({
   backdrop: {
-    backgroundColor: 'rgba(5, 7, 6, 0.78)',
+    backgroundColor: 'rgba(23, 43, 54, 0.78)',
     flex: 1,
   },
   safeArea: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingHorizontal: SPACE.lg,
+    paddingVertical: SPACE.lg,
   },
   card: {
     alignSelf: 'center',
     backgroundColor: COLORS.surface,
     borderColor: COLORS.border,
-    borderRadius: 26,
+    borderRadius: RADIUS.large,
     borderWidth: 1,
     maxWidth: 480,
-    padding: 24,
+    padding: SPACE.xl,
     width: '100%',
   },
   iconBadge: {
     alignItems: 'center',
-    backgroundColor: '#242b20',
-    borderColor: '#39452c',
-    borderRadius: 16,
+    backgroundColor: COLORS.highlight,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.medium,
     borderWidth: 1,
     height: 52,
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: SPACE.xl,
     width: 52,
   },
-  eyebrow: { color: COLORS.accent, fontSize: 10, fontWeight: '800', letterSpacing: 1.8 },
+  eyebrow: { color: COLORS.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.8 },
   title: { color: COLORS.text, fontSize: 27, fontWeight: '700', letterSpacing: -0.6, marginTop: 8 },
-  description: { color: COLORS.muted, fontSize: 14, lineHeight: 21, marginTop: 10 },
-  steps: { gap: 18, marginTop: 25 },
-  step: { alignItems: 'flex-start', flexDirection: 'row', gap: 12 },
+  description: { color: COLORS.muted, fontSize: 14, lineHeight: 21, marginTop: SPACE.xs },
+  steps: { gap: SPACE.md, marginTop: SPACE.xl },
+  step: { alignItems: 'flex-start', flexDirection: 'row', gap: SPACE.sm },
   stepNumber: {
-    color: COLORS.accent,
+    color: COLORS.primary,
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.7,
     paddingTop: 2,
     width: 22,
   },
-  stepCopy: { flex: 1, gap: 3 },
+  stepCopy: { flex: 1, gap: SPACE.xxs },
   stepTitle: { color: COLORS.text, fontSize: 13, fontWeight: '700' },
   stepDescription: { color: COLORS.muted, fontSize: 12, lineHeight: 18 },
   button: {
     alignItems: 'center',
-    backgroundColor: COLORS.accent,
-    borderRadius: 15,
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.medium,
     justifyContent: 'center',
-    marginTop: 26,
+    marginTop: SPACE.xl,
     minHeight: 54,
-    paddingHorizontal: 20,
+    paddingHorizontal: SPACE.lg,
   },
-  buttonPressed: { backgroundColor: COLORS.accentDark, transform: [{ scale: 0.99 }] },
-  buttonLabel: { color: '#15190f', fontSize: 14, fontWeight: '800' },
-  footnote: { color: '#788079', fontSize: 11, lineHeight: 16, marginTop: 13, textAlign: 'center' },
+  buttonPressed: { backgroundColor: COLORS.secondary, transform: [{ scale: 0.99 }] },
+  buttonLabel: { color: COLORS.surface, fontSize: 14, fontWeight: '800' },
+  footnote: { color: COLORS.muted, fontSize: 11, lineHeight: 16, marginTop: SPACE.sm, textAlign: 'center' },
 });
