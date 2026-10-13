@@ -12,11 +12,11 @@ import {
   View,
 } from 'react-native';
 import { router } from 'expo-router';
-import { ArrowRight, Monitor, Wifi } from 'lucide-react-native';
+import { ArrowRight, Wifi } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FirstRunSetupNotice } from '../components/FirstRunSetupNotice';
-import { COLORS, APP_CONFIG } from '../constants/config';
+import { COLORS, RADIUS, SPACE } from '../theme/tokens';
 import { isValidIpv4Address } from '../services/websocket/serverUrl';
 import { useConnectionStore } from '../stores/connection.store';
 
@@ -55,7 +55,7 @@ export default function HomeScreen() {
           >
             <View style={styles.topBar}>
               <View style={styles.brandMark}>
-                <Wifi color={COLORS.accent} size={17} strokeWidth={2.1} />
+                <Wifi color={COLORS.surface} size={17} strokeWidth={2.1} />
               </View>
               <Text style={styles.brandText}>
                 REMOTE <Text style={styles.brandLight}>MOUSE</Text>
@@ -63,10 +63,6 @@ export default function HomeScreen() {
             </View>
 
             <View style={styles.main}>
-              <View style={styles.eyebrowRow}>
-                <View style={styles.eyebrowDot} />
-                <Text style={styles.eyebrow}>CONTROLE REMOTO · WI-FI</Text>
-              </View>
               <Text style={styles.title}>Seu computador,{`\n`}na ponta dos dedos.</Text>
               <Text style={styles.subtitle}>
                 Conecte o celular e o computador à mesma rede Wi-Fi para começar.
@@ -74,9 +70,6 @@ export default function HomeScreen() {
 
               <View style={styles.connectionCard}>
                 <View style={styles.cardHeading}>
-                  <View style={styles.computerIcon}>
-                    <Monitor color={COLORS.accent} size={19} strokeWidth={1.8} />
-                  </View>
                   <View style={styles.cardHeadingCopy}>
                     <Text style={styles.cardTitle}>Conectar ao computador</Text>
                     <Text style={styles.cardSubtitle}>Informe o endereço IP do agente</Text>
@@ -96,20 +89,15 @@ export default function HomeScreen() {
                   }}
                   onSubmitEditing={connect}
                   placeholder="192.168.1.10"
-                  placeholderTextColor="#69716a"
+                  placeholderTextColor={COLORS.muted}
                   returnKeyType="go"
                   style={[styles.input, validationMessage && styles.inputInvalid]}
                   value={address}
                 />
-                {validationMessage ? (
+                {validationMessage && (
                   <Text accessibilityLiveRegion="polite" style={styles.validationMessage}>
                     {validationMessage}
                   </Text>
-                ) : (
-                  <View style={styles.portHint}>
-                    <View style={styles.portDot} />
-                    <Text style={styles.portText}>Porta do agente: {APP_CONFIG.agentPort}</Text>
-                  </View>
                 )}
 
                 <Pressable
@@ -126,7 +114,7 @@ export default function HomeScreen() {
                   <Text style={styles.connectButtonLabel}>
                     {isConnecting ? 'Conectando…' : 'Conectar'}
                   </Text>
-                  <ArrowRight color="#15190f" size={18} strokeWidth={2.5} />
+                  <ArrowRight color={COLORS.surface} size={18} strokeWidth={2.5} />
                 </Pressable>
               </View>
 
@@ -138,9 +126,6 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            <Text style={styles.footer}>
-              FEITO PARA SUA REDE LOCAL <Text style={styles.footerDot}>●</Text> PRIVADO POR DESIGN
-            </Text>
           </ScrollView>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
@@ -155,15 +140,15 @@ const styles = StyleSheet.create({
   screen: {
     flexGrow: 1,
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingHorizontal: SPACE.xl,
+    paddingTop: SPACE.md,
   },
-  topBar: { alignItems: 'center', flexDirection: 'row', gap: 10, height: 44 },
+  topBar: { alignItems: 'center', flexDirection: 'row', gap: SPACE.xs, height: 44 },
   brandMark: {
     alignItems: 'center',
-    backgroundColor: '#242b20',
-    borderColor: '#39452c',
-    borderRadius: 11,
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+    borderRadius: RADIUS.small,
     borderWidth: 1,
     height: 36,
     justifyContent: 'center',
@@ -172,9 +157,6 @@ const styles = StyleSheet.create({
   brandText: { color: COLORS.text, fontSize: 11, fontWeight: '800', letterSpacing: 1.4 },
   brandLight: { color: COLORS.muted, fontWeight: '500' },
   main: { alignSelf: 'center', maxWidth: 440, width: '100%' },
-  eyebrowRow: { alignItems: 'center', flexDirection: 'row', gap: 8, marginBottom: 14 },
-  eyebrowDot: { backgroundColor: COLORS.accent, borderRadius: 4, height: 7, width: 7 },
-  eyebrow: { color: COLORS.accent, fontSize: 9, fontWeight: '800', letterSpacing: 2 },
   title: {
     color: COLORS.text,
     fontSize: 32,
@@ -182,74 +164,70 @@ const styles = StyleSheet.create({
     letterSpacing: -1.1,
     lineHeight: 38,
   },
-  subtitle: { color: COLORS.muted, fontSize: 14, lineHeight: 21, marginTop: 12, maxWidth: 330 },
+  subtitle: {
+    color: COLORS.muted,
+    fontSize: 14,
+    lineHeight: 21,
+    marginTop: SPACE.sm,
+    maxWidth: 330,
+  },
   connectionCard: {
     backgroundColor: COLORS.surface,
     borderColor: COLORS.border,
-    borderRadius: 24,
+    borderRadius: RADIUS.large,
     borderWidth: 1,
-    marginTop: 30,
-    padding: 20,
+    marginTop: SPACE.xxl,
+    padding: SPACE.lg,
   },
-  cardHeading: { alignItems: 'center', flexDirection: 'row', gap: 12, marginBottom: 23 },
-  computerIcon: {
-    alignItems: 'center',
-    backgroundColor: '#242b20',
-    borderRadius: 13,
-    height: 44,
-    justifyContent: 'center',
-    width: 44,
-  },
-  cardHeadingCopy: { flex: 1, gap: 4 },
+  cardHeading: { marginBottom: SPACE.xl },
+  cardHeadingCopy: { gap: SPACE.xxs },
   cardTitle: { color: COLORS.text, fontSize: 14, fontWeight: '700' },
   cardSubtitle: { color: COLORS.muted, fontSize: 11 },
   inputLabel: { color: COLORS.muted, fontSize: 9, fontWeight: '800', letterSpacing: 1.4 },
   input: {
     backgroundColor: COLORS.background,
     borderColor: COLORS.border,
-    borderRadius: 14,
+    borderRadius: RADIUS.medium,
     borderWidth: 1,
     color: COLORS.text,
     fontSize: 17,
     letterSpacing: 0.5,
-    marginTop: 9,
+    marginTop: SPACE.xs,
     minHeight: 54,
-    paddingHorizontal: 15,
+    paddingHorizontal: SPACE.md,
   },
   inputInvalid: { borderColor: COLORS.danger },
-  validationMessage: { color: COLORS.danger, fontSize: 11, lineHeight: 16, marginTop: 8 },
-  portHint: { alignItems: 'center', flexDirection: 'row', gap: 7, marginTop: 10 },
-  portDot: { backgroundColor: COLORS.accent, borderRadius: 3, height: 5, width: 5 },
-  portText: { color: COLORS.muted, fontSize: 11 },
+  validationMessage: {
+    color: COLORS.danger,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: SPACE.xs,
+  },
   connectButton: {
     alignItems: 'center',
-    backgroundColor: COLORS.accent,
-    borderRadius: 15,
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.medium,
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 21,
+    marginTop: SPACE.lg,
     minHeight: 54,
-    paddingHorizontal: 20,
+    paddingHorizontal: SPACE.lg,
   },
-  connectButtonPressed: { backgroundColor: COLORS.accentDark, transform: [{ scale: 0.99 }] },
+  connectButtonPressed: { backgroundColor: COLORS.secondary, transform: [{ scale: 0.99 }] },
   connectButtonDisabled: { opacity: 0.65 },
-  connectButtonLabel: { color: '#15190f', fontSize: 14, fontWeight: '800', marginRight: 8 },
+  connectButtonLabel: {
+    color: COLORS.surface,
+    fontSize: 14,
+    fontWeight: '800',
+    marginRight: SPACE.xs,
+  },
   networkNote: {
     alignItems: 'center',
     alignSelf: 'center',
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 20,
+    gap: SPACE.xs,
+    marginTop: SPACE.lg,
     maxWidth: 300,
   },
   networkNoteText: { color: COLORS.muted, flex: 1, fontSize: 11, lineHeight: 16 },
-  footer: {
-    color: '#6e776f',
-    fontSize: 8,
-    fontWeight: '700',
-    letterSpacing: 1.1,
-    paddingBottom: 17,
-    textAlign: 'center',
-  },
-  footerDot: { color: COLORS.accent },
 });

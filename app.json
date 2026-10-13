@@ -7,7 +7,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "wifimouse",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "ios": {
       "bundleIdentifier": "com.davixavier.remotemouse",
       "icon": "./assets/images/icon.png",
@@ -21,7 +21,7 @@
     "android": {
       "package": "com.davixavier.remotemouse",
       "adaptiveIcon": {
-        "backgroundColor": "#101211",
+        "backgroundColor": "#F8FAFC",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
@@ -44,7 +44,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#101211",
+          "backgroundColor": "#F8FAFC",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 144
         }

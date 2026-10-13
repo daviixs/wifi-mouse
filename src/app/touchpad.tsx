@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { COLORS } from '../constants/config';
+import { COLORS, RADIUS, SPACE } from '../theme/tokens';
 import { ConnectionStatus } from '../components/ConnectionStatus';
 import { MouseButton } from '../components/MouseButton';
 import { KeyboardModeControl } from '../components/KeyboardModeControl';
@@ -86,42 +86,47 @@ export default function TouchpadScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { backgroundColor: COLORS.background, flex: 1 },
-  screen: { flex: 1, paddingBottom: 14, paddingHorizontal: 18, paddingTop: 8 },
-  header: { alignItems: 'center', flexDirection: 'row', gap: 12, minHeight: 52 },
+  screen: {
+    flex: 1,
+    paddingBottom: SPACE.sm,
+    paddingHorizontal: SPACE.md,
+    paddingTop: SPACE.xs,
+  },
+  header: { alignItems: 'center', flexDirection: 'row', gap: SPACE.sm, minHeight: 52 },
   backButton: {
     alignItems: 'center',
     backgroundColor: COLORS.surface,
     borderColor: COLORS.border,
-    borderRadius: 14,
+    borderRadius: RADIUS.medium,
     borderWidth: 1,
     height: 42,
     justifyContent: 'center',
     width: 42,
   },
-  connectionBlock: { flex: 1, gap: 4 },
+  connectionBlock: { flex: 1, gap: SPACE.xxs },
   deviceName: { color: COLORS.muted, fontSize: 11, maxWidth: 210 },
-  touchArea: { flex: 1, paddingBottom: 24, paddingTop: 18, position: 'relative' },
-  controls: { gap: 13, paddingBottom: 4 },
-  controlHint: { alignItems: 'center', gap: 5, marginBottom: 2 },
+  touchArea: { flex: 1, paddingBottom: SPACE.xl, paddingTop: SPACE.md, position: 'relative' },
+  controls: { gap: SPACE.sm, paddingBottom: SPACE.xxs },
+  controlHint: { alignItems: 'center', gap: SPACE.xxs, marginBottom: SPACE.xxs },
   controlEyebrow: { color: COLORS.muted, fontSize: 9, fontWeight: '800', letterSpacing: 1.7 },
-  controlDescription: { color: '#656e67', fontSize: 10 },
+  controlDescription: { color: COLORS.muted, fontSize: 10 },
   buttonRow: { flexDirection: 'row', position: 'relative' },
   buttonDivider: {
     backgroundColor: COLORS.border,
     height: 34,
     left: '50%',
     position: 'absolute',
-    top: 14,
+    top: SPACE.sm,
     width: 1,
     zIndex: 1,
   },
   gestureHint: {
-    color: '#6e776f',
+    color: COLORS.muted,
     fontSize: 8,
     fontWeight: '700',
     letterSpacing: 1.1,
-    paddingTop: 3,
+    paddingTop: SPACE.xxs,
     textAlign: 'center',
   },
-  hintDot: { color: COLORS.accent },
+  hintDot: { color: COLORS.primary },
 });
