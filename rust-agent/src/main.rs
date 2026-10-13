@@ -1,7 +1,8 @@
+mod diagnostics;
 mod input;
 mod protocol;
 
-use std::{env, error::Error, future::Future, net::SocketAddr, pin::Pin};
+use std::{env, error::Error, future::Future, net::SocketAddr, pin::Pin, time::Instant};
 
 use enigo::{Enigo, Settings};
 use futures_util::{SinkExt, StreamExt};
@@ -63,6 +64,7 @@ async fn serve_connection(
     config.max_message_size = Some(MAX_COMMAND_BYTES);
     config.max_frame_size = Some(MAX_COMMAND_BYTES);
     let mut socket = accept_async_with_config(stream, Some(config)).await?;
+    let mut diagnostics = diagnostics::AgentDiagnostics::default();
 
     loop {
         tokio::select! {
@@ -70,10 +72,20 @@ async fn serve_connection(
             incoming = socket.next() => {
                 match incoming {
                     Some(Ok(Message::Text(text))) => {
+                        let received_at = Instant::now();
                         match protocol::parse_command(text.as_str()) {
                             Ok(command) => {
-                                if let Err(error) = mouse.apply(command) {
-                                    eprintln!("Falha ao executar comando do mouse: {error}");
+                                let metrics = diagnostics::CommandMetrics::from_command(&command);
+                                let started_at = Instant::now();
+                                let error = mouse.apply(command).err().map(|error| error.to_string());
+                                diagnostics.record(
+                                    metrics,
+                                    started_at.duration_since(received_at),
+                                    started_at.elapsed(),
+                                    error,
+                                );
+                                if let Some(report) = diagnostics.report_if_due() {
+                                    println!("{report}");
                                 }
                             }
                             Err(error) => eprintln!("Comando ignorado: {error}"),

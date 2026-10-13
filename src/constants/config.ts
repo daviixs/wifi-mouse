@@ -6,7 +6,7 @@ export const APP_CONFIG = {
     maxDelayMs: 12_000,
     maxAttempts: 0,
   },
-  commandFlushIntervalMs: 16,
+  diagnosticsIntervalMs: 5_000,
   maxQueuedCommands: 120,
 } as const;
 

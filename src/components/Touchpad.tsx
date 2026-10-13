@@ -1,91 +1,163 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-  runOnJS,
   useAnimatedStyle,
+  useFrameCallback,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
 import { COLORS } from '../constants/config';
+import { addMotionDelta, createMotionCommand, type MotionKind } from '../services/mouse/motion';
 import type { MouseCommand } from '../types/protocol';
-
-/* eslint-disable react-hooks/immutability -- Reanimated shared values mutate inside UI-thread gesture worklets. */
 
 type TouchpadProps = { onCommand: (command: MouseCommand) => void };
 
 export function Touchpad({ onCommand }: TouchpadProps) {
   const pressed = useSharedValue(0);
+  const pendingKind = useSharedValue<MotionKind | null>(null);
+  const pendingDx = useSharedValue(0);
+  const pendingDy = useSharedValue(0);
+  const dispatchMotion = useCallback(
+    (kind: MotionKind, dx: number, dy: number) => {
+      if (dx || dy) onCommand(createMotionCommand(kind, dx, dy));
+    },
+    [onCommand],
+  );
+  const frameCallback = useFrameCallback(() => {
+    const kind = pendingKind.get();
+    if (!kind) return;
+
+    const dx = pendingDx.get();
+    const dy = pendingDy.get();
+    pendingDx.set(0);
+    pendingDy.set(0);
+    if (dx || dy) scheduleOnRN(dispatchMotion, kind, dx, dy);
+  }, false);
+  const finishMotion = useCallback(
+    (kind: MotionKind | null, dx: number, dy: number) => {
+      if (kind && (dx || dy)) dispatchMotion(kind, dx, dy);
+      frameCallback.setActive(false);
+    },
+    [dispatchMotion, frameCallback],
+  );
+  const activateFrameCallback = useCallback(() => frameCallback.setActive(true), [frameCallback]);
   const animatedSurface = useAnimatedStyle(() => ({
-    borderColor: pressed.value ? COLORS.accentDark : COLORS.border,
-    backgroundColor: pressed.value ? '#1d241b' : COLORS.surface,
-    transform: [{ scale: withTiming(pressed.value ? 0.997 : 1, { duration: 140 }) }],
+    borderColor: pressed.get() ? COLORS.accentDark : COLORS.border,
+    backgroundColor: pressed.get() ? '#1d241b' : COLORS.surface,
+    transform: [{ scale: withTiming(pressed.get() ? 0.997 : 1, { duration: 140 }) }],
   }));
 
   const gestures = useMemo(() => {
-    const leftClick = () =>
-      onCommand({ version: 1, type: 'mouse.click', payload: { button: 'left' } });
-    const rightClick = () =>
-      onCommand({ version: 1, type: 'mouse.click', payload: { button: 'right' } });
+    const dispatchClick = (button: 'left' | 'right') => {
+      onCommand({ version: 1, type: 'mouse.click', payload: { button } });
+    };
+    const flushPendingMotion = () => {
+      const kind = pendingKind.get();
+      if (!kind) return;
+      const dx = pendingDx.get();
+      const dy = pendingDy.get();
+      pendingKind.set(null);
+      pendingDx.set(0);
+      pendingDy.set(0);
+      scheduleOnRN(finishMotion, kind, dx, dy);
+    };
     const tap = Gesture.Tap()
       .maxDuration(240)
       .maxDistance(12)
       .onEnd((_event, success) => {
-        if (success) runOnJS(leftClick)();
+        if (success) {
+          flushPendingMotion();
+          scheduleOnRN(dispatchClick, 'left');
+        }
       });
     const longPress = Gesture.LongPress()
       .minDuration(520)
       .maxDistance(14)
       .onBegin(() => {
-        pressed.value = 1;
+        pressed.set(1);
       })
       .onEnd((_event, success) => {
-        pressed.value = 0;
-        if (success) runOnJS(rightClick)();
+        pressed.set(0);
+        if (success) {
+          flushPendingMotion();
+          scheduleOnRN(dispatchClick, 'right');
+        }
       })
       .onFinalize(() => {
-        pressed.value = 0;
+        pressed.set(0);
       });
     const move = Gesture.Pan()
       .minPointers(1)
       .maxPointers(1)
       .onBegin(() => {
-        pressed.value = 1;
+        pressed.set(1);
+      })
+      .onStart(() => {
+        const previousKind = pendingKind.get();
+        if (previousKind && previousKind !== 'mouse.move') {
+          scheduleOnRN(finishMotion, previousKind, pendingDx.get(), pendingDy.get());
+          pendingDx.set(0);
+          pendingDy.set(0);
+        }
+        pendingKind.set('mouse.move');
+        scheduleOnRN(activateFrameCallback);
       })
       .onChange((event) => {
         if (event.changeX || event.changeY) {
-          runOnJS(onCommand)({
-            version: 1,
-            type: 'mouse.move',
-            payload: { dx: event.changeX, dy: event.changeY },
-          });
+          pendingDx.set(addMotionDelta(pendingDx.get(), event.changeX));
+          pendingDy.set(addMotionDelta(pendingDy.get(), event.changeY));
         }
       })
       .onFinalize(() => {
-        pressed.value = 0;
+        pressed.set(0);
+        if (pendingKind.get() === 'mouse.move') {
+          const dx = pendingDx.get();
+          const dy = pendingDy.get();
+          pendingKind.set(null);
+          pendingDx.set(0);
+          pendingDy.set(0);
+          scheduleOnRN(finishMotion, 'mouse.move', dx, dy);
+        }
       });
     const scroll = Gesture.Pan()
       .minPointers(2)
       .maxPointers(2)
       .onBegin(() => {
-        pressed.value = 1;
+        pressed.set(1);
+      })
+      .onStart(() => {
+        const previousKind = pendingKind.get();
+        if (previousKind && previousKind !== 'mouse.scroll') {
+          scheduleOnRN(finishMotion, previousKind, pendingDx.get(), pendingDy.get());
+          pendingDx.set(0);
+          pendingDy.set(0);
+        }
+        pendingKind.set('mouse.scroll');
+        scheduleOnRN(activateFrameCallback);
       })
       .onChange((event) => {
         if (event.changeX || event.changeY) {
-          runOnJS(onCommand)({
-            version: 1,
-            type: 'mouse.scroll',
-            payload: { dx: -event.changeX, dy: -event.changeY },
-          });
+          pendingDx.set(addMotionDelta(pendingDx.get(), -event.changeX));
+          pendingDy.set(addMotionDelta(pendingDy.get(), -event.changeY));
         }
       })
       .onFinalize(() => {
-        pressed.value = 0;
+        pressed.set(0);
+        if (pendingKind.get() === 'mouse.scroll') {
+          const dx = pendingDx.get();
+          const dy = pendingDy.get();
+          pendingKind.set(null);
+          pendingDx.set(0);
+          pendingDy.set(0);
+          scheduleOnRN(finishMotion, 'mouse.scroll', dx, dy);
+        }
       });
 
     return Gesture.Race(longPress, tap, scroll, move);
-  }, [onCommand, pressed]);
+  }, [activateFrameCallback, finishMotion, onCommand, pendingDx, pendingDy, pendingKind, pressed]);
 
   return (
     <GestureDetector gesture={gestures}>

@@ -58,7 +58,9 @@ O APK será criado em `android/app/build/outputs/apk/release/app-release.apk`.
 
 ## Gestos e protocolo
 
-Um dedo envia deltas `mouse.move`; tap envia `mouse.click` esquerdo; dois dedos enviam `mouse.scroll` nos eixos vertical e horizontal; long press envia clique direito. Os gestos são processados pelo Gesture Handler/Reanimated, e a fila agrega o envio em intervalos curtos sem renderizar novamente a tela a cada movimento.
+Um dedo envia deltas `mouse.move`; tap envia `mouse.click` esquerdo; dois dedos enviam `mouse.scroll` nos eixos vertical e horizontal; long press envia clique direito. O Reanimated acumula os deltas na thread de UI e os despacha no máximo uma vez por frame ativo, sem renderizar novamente a tela a cada movimento. O WebSocket envia cada delta agregado imediatamente e combina comandos adjacentes apenas se estiverem temporariamente enfileirados.
+
+Durante a atividade, o app registra estatísticas agregadas a cada cinco segundos no log `[RemoteMouse][diag][app]`. O agente Rust imprime recebimento, tempo de aplicação e erros em `[RemoteMouse][diag][agent]`. Esses tempos são locais a cada dispositivo e não representam latência de ponta a ponta.
 
 Os comandos são objetos JSON versionados, por exemplo:
 
@@ -73,5 +75,6 @@ O agente escuta em `0.0.0.0:8765`, recebe uma conexão por vez e implementa `mou
 ```sh
 npm run typecheck
 npm run lint
+npm run test:motion
 npx expo-doctor
 ```

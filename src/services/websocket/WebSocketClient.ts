@@ -9,12 +9,22 @@ export class WebSocketClient {
   private connection: WebSocket | null = null;
   private url: string | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  private flushTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempts = 0;
   private manuallyClosed = true;
   private currentStatus: SocketStatus = 'disconnected';
   private readonly listeners = new Set<StatusListener>();
   private readonly queue: MouseCommand[] = [];
+  private diagnosticsStartedAt = 0;
+  private diagnosticsLastSentAt = 0;
+  private readonly diagnostics = {
+    moves: 0,
+    moveDx: 0,
+    moveDy: 0,
+    scrolls: 0,
+    scrollDx: 0,
+    scrollDy: 0,
+    clicks: 0,
+  };
 
   connect(url: string): void {
     this.disconnect();
@@ -43,9 +53,11 @@ export class WebSocketClient {
 
   send(command: MouseCommand): boolean {
     if (this.manuallyClosed) return false;
-    if (this.queue.length >= APP_CONFIG.maxQueuedCommands) this.queue.shift();
-    this.queue.push(command);
-    this.scheduleFlush();
+    if (this.connection?.readyState === WebSocket.OPEN) {
+      this.write(command, true);
+      return true;
+    }
+    this.enqueue(command);
     return true;
   }
 
@@ -66,7 +78,7 @@ export class WebSocketClient {
         if (this.connection !== connection) return;
         this.reconnectAttempts = 0;
         this.setStatus('connected');
-        this.scheduleFlush();
+        this.flush();
       };
       connection.onerror = () => {
         if (this.connection === connection) this.setStatus('error', 'Falha na conexão WebSocket.');
@@ -98,31 +110,94 @@ export class WebSocketClient {
     this.reconnectTimer = setTimeout(() => this.open(), delay);
   }
 
-  private scheduleFlush(): void {
-    if (this.flushTimer || this.queue.length === 0) return;
-    this.flushTimer = setTimeout(() => {
-      this.flushTimer = null;
-      this.flush();
-    }, APP_CONFIG.commandFlushIntervalMs);
+  private enqueue(command: MouseCommand): void {
+    const previous = this.queue.at(-1);
+    if (previous?.type === 'mouse.move' && command.type === 'mouse.move') {
+      previous.payload.dx += command.payload.dx;
+      previous.payload.dy += command.payload.dy;
+      return;
+    }
+    if (previous?.type === 'mouse.scroll' && command.type === 'mouse.scroll') {
+      previous.payload.dx += command.payload.dx;
+      previous.payload.dy += command.payload.dy;
+      return;
+    }
+    if (this.queue.length >= APP_CONFIG.maxQueuedCommands) this.queue.shift();
+    this.queue.push(command);
   }
 
   private flush(): void {
     if (this.connection?.readyState !== WebSocket.OPEN || this.queue.length === 0) return;
-    const commands = this.queue.splice(0);
-    try {
-      for (const command of commands) this.connection.send(JSON.stringify(command));
-    } catch {
-      this.queue.unshift(...commands);
-      this.connection.close();
+    while (this.queue.length > 0) {
+      const command = this.queue[0];
+      if (!this.write(command)) return;
+      this.queue.shift();
     }
-    if (this.queue.length) this.scheduleFlush();
+  }
+
+  private write(command: MouseCommand, enqueueOnFailure = false): boolean {
+    const connection = this.connection;
+    if (!connection || connection.readyState !== WebSocket.OPEN) return false;
+    try {
+      connection.send(JSON.stringify(command));
+      this.recordSent(command);
+      return true;
+    } catch {
+      if (enqueueOnFailure) this.enqueue(command);
+      connection.close();
+      return false;
+    }
+  }
+
+  private recordSent(command: MouseCommand): void {
+    const now = performance.now();
+    if (
+      this.diagnosticsStartedAt === 0 ||
+      now - this.diagnosticsLastSentAt >= APP_CONFIG.diagnosticsIntervalMs
+    ) {
+      this.resetDiagnostics();
+      this.diagnosticsStartedAt = now;
+    }
+    this.diagnosticsLastSentAt = now;
+
+    switch (command.type) {
+      case 'mouse.move':
+        this.diagnostics.moves += 1;
+        this.diagnostics.moveDx += command.payload.dx;
+        this.diagnostics.moveDy += command.payload.dy;
+        break;
+      case 'mouse.scroll':
+        this.diagnostics.scrolls += 1;
+        this.diagnostics.scrollDx += command.payload.dx;
+        this.diagnostics.scrollDy += command.payload.dy;
+        break;
+      case 'mouse.click':
+        this.diagnostics.clicks += 1;
+        break;
+    }
+
+    if (now - this.diagnosticsStartedAt < APP_CONFIG.diagnosticsIntervalMs) return;
+    console.info('[RemoteMouse][diag][app]', {
+      windowMs: Math.round(now - this.diagnosticsStartedAt),
+      ...this.diagnostics,
+    });
+    this.diagnosticsStartedAt = now;
+    this.resetDiagnostics();
+  }
+
+  private resetDiagnostics(): void {
+    this.diagnostics.moves = 0;
+    this.diagnostics.moveDx = 0;
+    this.diagnostics.moveDy = 0;
+    this.diagnostics.scrolls = 0;
+    this.diagnostics.scrollDx = 0;
+    this.diagnostics.scrollDy = 0;
+    this.diagnostics.clicks = 0;
   }
 
   private clearTimers(): void {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
-    if (this.flushTimer) clearTimeout(this.flushTimer);
     this.reconnectTimer = null;
-    this.flushTimer = null;
   }
 
   private setStatus(status: SocketStatus, error?: string): void {
