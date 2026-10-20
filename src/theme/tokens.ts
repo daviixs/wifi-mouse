@@ -1,3 +1,5 @@
+import { Platform, type ViewStyle } from 'react-native';
+
 export const COLORS = {
   background: '#F3F5F8',
   surface: '#FFFFFF',
@@ -30,19 +32,27 @@ export const RADIUS = {
   pill: 999,
 } as const;
 
+function softShadow(
+  offsetY: number,
+  blur: number,
+  opacity: number,
+  elevation: number,
+): ViewStyle {
+  if (Platform.OS === 'ios') {
+    return {
+      shadowColor: '#31566B',
+      shadowOffset: { width: 0, height: offsetY },
+      shadowOpacity: opacity,
+      shadowRadius: blur,
+    };
+  }
+
+  if (Platform.OS === 'android') return { elevation };
+
+  return { boxShadow: `0px ${offsetY}px ${blur}px rgba(49, 86, 107, ${opacity})` };
+}
+
 export const SHADOWS = {
-  card: {
-    shadowColor: '#31566B',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.09,
-    shadowRadius: 18,
-    elevation: 4,
-  },
-  floating: {
-    shadowColor: '#31566B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 3,
-  },
+  card: softShadow(8, 18, 0.09, 4),
+  floating: softShadow(4, 10, 0.12, 3),
 } as const;
