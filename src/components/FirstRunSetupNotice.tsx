@@ -1,48 +1,22 @@
-import { useCallback, useEffect, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Wifi } from 'lucide-react-native';
 
 import { COLORS, RADIUS, SHADOWS, SPACE } from '../theme/tokens';
 
-const NOTICE_STORAGE_KEY = '@remote-mouse/mac-accessibility-notice-v1';
+type FirstRunSetupNoticeProps = {
+  visible: boolean;
+  onDismiss: () => void;
+};
 
-export function FirstRunSetupNotice() {
-  const [loaded, setLoaded] = useState(false);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    void AsyncStorage.getItem(NOTICE_STORAGE_KEY)
-      .then((value) => {
-        if (isMounted) setVisible(value !== 'seen');
-      })
-      .catch(() => {
-        if (isMounted) setVisible(true);
-      })
-      .finally(() => {
-        if (isMounted) setLoaded(true);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const dismiss = useCallback(() => {
-    setVisible(false);
-    void AsyncStorage.setItem(NOTICE_STORAGE_KEY, 'seen').catch(() => undefined);
-  }, []);
-
+export function FirstRunSetupNotice({ visible, onDismiss }: FirstRunSetupNoticeProps) {
   return (
     <Modal
       animationType="fade"
-      onRequestClose={dismiss}
+      onRequestClose={onDismiss}
       statusBarTranslucent
       transparent
-      visible={loaded && visible}
+      visible={visible}
     >
       <View style={styles.backdrop}>
         <SafeAreaView style={styles.safeArea}>
@@ -76,7 +50,7 @@ export function FirstRunSetupNotice() {
 
               <Pressable
                 accessibilityRole="button"
-                onPress={dismiss}
+                onPress={onDismiss}
                 style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
               >
                 <Text style={styles.buttonLabel}>Entendi, continuar</Text>

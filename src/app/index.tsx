@@ -12,10 +12,11 @@ import {
   View,
 } from 'react-native';
 import { router } from 'expo-router';
-import { ArrowRight, Wifi } from 'lucide-react-native';
+import { ArrowRight, CircleHelp, Wifi } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FirstRunSetupNotice } from '../components/FirstRunSetupNotice';
+import { FirstRunOnboarding } from '../components/FirstRunOnboarding';
 import { COLORS, RADIUS, SHADOWS, SPACE } from '../theme/tokens';
 import { isValidIpv4Address } from '../services/websocket/serverUrl';
 import { useConnectionStore } from '../stores/connection.store';
@@ -23,6 +24,7 @@ import { useConnectionStore } from '../stores/connection.store';
 export default function HomeScreen() {
   const [address, setAddress] = useState('');
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
+  const [isMacHelpVisible, setIsMacHelpVisible] = useState(false);
   const connectToServer = useConnectionStore((state) => state.connectToServer);
   const isConnecting = useConnectionStore(
     (state) => state.status === 'connecting' || state.status === 'reconnecting',
@@ -54,12 +56,22 @@ export default function HomeScreen() {
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.topBar}>
-              <View style={styles.brandMark}>
-                <Wifi color={COLORS.surface} size={17} strokeWidth={2.1} />
+              <View style={styles.brand}>
+                <View style={styles.brandMark}>
+                  <Wifi color={COLORS.surface} size={17} strokeWidth={2.1} />
+                </View>
+                <Text style={styles.brandText}>
+                  REMOTE <Text style={styles.brandLight}>MOUSE</Text>
+                </Text>
               </View>
-              <Text style={styles.brandText}>
-                REMOTE <Text style={styles.brandLight}>MOUSE</Text>
-              </Text>
+              <Pressable
+                accessibilityLabel="Ajuda para configurar o controle no Mac"
+                accessibilityRole="button"
+                onPress={() => setIsMacHelpVisible(true)}
+                style={({ pressed }) => [styles.helpButton, pressed && styles.helpButtonPressed]}
+              >
+                <CircleHelp color={COLORS.primary} size={21} strokeWidth={1.9} />
+              </Pressable>
             </View>
 
             <View style={styles.main}>
@@ -129,7 +141,11 @@ export default function HomeScreen() {
           </ScrollView>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
-      <FirstRunSetupNotice />
+      <FirstRunOnboarding />
+      <FirstRunSetupNotice
+        onDismiss={() => setIsMacHelpVisible(false)}
+        visible={isMacHelpVisible}
+      />
     </SafeAreaView>
   );
 }
@@ -143,7 +159,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACE.xl,
     paddingTop: SPACE.md,
   },
-  topBar: { alignItems: 'center', flexDirection: 'row', gap: SPACE.xs, height: 44 },
+  topBar: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    height: 44,
+    justifyContent: 'space-between',
+  },
+  brand: { alignItems: 'center', flexDirection: 'row', gap: SPACE.xs },
+  helpButton: {
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+    ...SHADOWS.floating,
+  },
+  helpButtonPressed: { transform: [{ scale: 0.96 }] },
   brandMark: {
     alignItems: 'center',
     backgroundColor: COLORS.primary,
