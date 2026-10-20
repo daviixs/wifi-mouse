@@ -1,7 +1,7 @@
 # Design: sistema visual mobile inspirado na Atlassian
 
 **Data:** 2026-10-13  
-**Status:** proposta aprovada em conversa, aguardando revisão deste documento  
+**Status:** aprovada e aplicada; direção visual refinada com referência Bevel em 2026-10-20
 **Projeto:** Remote Mouse, Expo SDK 57 e React Native 0.86
 
 ## Objetivo
@@ -14,7 +14,9 @@ Aplicativo mobile para controlar um computador pela rede local. A tela de conex�
 
 ## Direção aprovada
 
-- Tema claro com linguagem de produto funcional inspirada na Atlassian.
+- Tema claro com tokens semânticos inspirados na Atlassian e acabamento de superfícies inspirado nas referências do app Bevel enviadas pelo usuário.
+- Fundo frio claro, cartões brancos com cantos amplos e sombras suaves; profundidade reservada a painéis e controles flutuantes.
+- Usar a referência Bevel como linguagem de acabamento, sem importar métricas de saúde, conteúdo ou padrões que não pertencem ao controle remoto.
 - Componentes implementados com React Native nativo. Atlaskit e os componentes web Atlassian não serão instalados no app mobile.
 - Design tokens com nomes semânticos para cores e espaçamento. A inspiração não implica reprodução literal de Jira ou outro produto Atlassian.
 - Manter rotas, texto e comportamento existentes, exceto remoções explicitamente pedidas.
@@ -32,7 +34,7 @@ Papéis definidos:
 | Ação secundária | `#4D8DBA` | Controles secundários e elementos de apoio |
 | Destaque frio | `#97D7FF` | Realce suave e superfícies informativas |
 | Destaque quente | `#FFEFC4` | Área de apoio pontual, sem ocupar a tela inteira |
-| Fundo | `#F8FAFC` | Fundo global claro |
+| Fundo | `#F3F5F8` | Fundo global claro, neutro frio |
 | Superfície | `#FFFFFF` | Controles e painéis |
 | Texto primário | `#172B36` | Títulos e conteúdo principal |
 | Texto secundário | `#445968` | Descrições e metadados necessários |
@@ -44,7 +46,7 @@ Os valores neutros e semânticos são uma proposta de implementação para apoia
 
 ## Tokens e limites arquiteturais
 
-Criar `src/theme/tokens.ts` como fonte única para cores e escalas compartilhadas. Migrar o uso de `COLORS` e cores literais de interface para papéis semânticos, sem mover constantes de protocolo ou configuração de rede para o tema. Usar espaçamentos em passos de 4 e 8 pontos e documentar uma escala curta de raios para botões, campos e painéis.
+Criar `src/theme/tokens.ts` como fonte única para cores, escalas de espaçamento/raio e sombras compartilhadas. Migrar o uso de `COLORS` e cores literais de interface para papéis semânticos, sem mover constantes de protocolo ou configuração de rede para o tema. Usar espaçamentos em passos de 4 e 8 pontos e documentar uma escala curta de raios para botões, campos e painéis.
 
 Escopo visual:
 

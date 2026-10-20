@@ -4,7 +4,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Wifi } from 'lucide-react-native';
 
-import { COLORS, RADIUS, SPACE } from '../theme/tokens';
+import { COLORS, RADIUS, SHADOWS, SPACE } from '../theme/tokens';
 
 const NOTICE_STORAGE_KEY = '@remote-mouse/mac-accessibility-notice-v1';
 
@@ -110,7 +110,7 @@ function Step({ number, title, children }: StepProps) {
 
 const styles = StyleSheet.create({
   backdrop: {
-    backgroundColor: 'rgba(23, 43, 54, 0.78)',
+    backgroundColor: 'rgba(23, 43, 54, 0.42)',
     flex: 1,
   },
   safeArea: { flex: 1 },
@@ -129,6 +129,7 @@ const styles = StyleSheet.create({
     maxWidth: 480,
     padding: SPACE.xl,
     width: '100%',
+    ...SHADOWS.card,
   },
   iconBadge: {
     alignItems: 'center',
@@ -166,7 +167,7 @@ const styles = StyleSheet.create({
     minHeight: 54,
     paddingHorizontal: SPACE.lg,
   },
-  buttonPressed: { backgroundColor: COLORS.secondary, transform: [{ scale: 0.99 }] },
+  buttonPressed: { backgroundColor: COLORS.primary, transform: [{ scale: 0.99 }] },
   buttonLabel: { color: COLORS.surface, fontSize: 14, fontWeight: '800' },
   footnote: { color: COLORS.muted, fontSize: 11, lineHeight: 16, marginTop: SPACE.sm, textAlign: 'center' },
 });

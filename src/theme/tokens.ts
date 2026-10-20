@@ -1,5 +1,5 @@
 export const COLORS = {
-  background: '#F8FAFC',
+  background: '#F3F5F8',
   surface: '#FFFFFF',
   surfaceSubtle: '#EAF4FA',
   border: '#D9E3E8',
@@ -26,6 +26,23 @@ export const SPACE = {
 export const RADIUS = {
   small: 8,
   medium: 14,
-  large: 24,
+  large: 28,
   pill: 999,
+} as const;
+
+export const SHADOWS = {
+  card: {
+    shadowColor: '#31566B',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.09,
+    shadowRadius: 18,
+    elevation: 4,
+  },
+  floating: {
+    shadowColor: '#31566B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 3,
+  },
 } as const;

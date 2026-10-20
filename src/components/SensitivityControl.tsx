@@ -3,7 +3,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { Gauge } from 'lucide-react-native';
 
-import { COLORS, RADIUS, SPACE } from '../theme/tokens';
+import { COLORS, RADIUS, SHADOWS, SPACE } from '../theme/tokens';
 import {
   SENSITIVITY_MAX,
   SENSITIVITY_MIN,
@@ -98,11 +98,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13,
     position: 'absolute',
     zIndex: 3,
+    ...SHADOWS.floating,
   },
   buttonLabel: { color: COLORS.text, fontSize: 12, fontWeight: '800' },
   modalRoot: {
     alignItems: 'center',
-    backgroundColor: 'rgba(23, 43, 54, 0.6)',
+    backgroundColor: 'rgba(23, 43, 54, 0.38)',
     flex: 1,
     justifyContent: 'center',
     padding: 24,
@@ -116,14 +117,15 @@ const styles = StyleSheet.create({
     maxWidth: 420,
     padding: 22,
     width: '100%',
+    ...SHADOWS.card,
   },
   titleRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   headingBlock: { gap: 6 },
-  eyebrow: { color: COLORS.muted, fontSize: 9, fontWeight: '800', letterSpacing: 1.6 },
+  eyebrow: { color: COLORS.muted, fontSize: 10, fontWeight: '800', letterSpacing: 1.6 },
   heading: { color: COLORS.text, fontSize: 20, fontWeight: '700' },
   value: { color: COLORS.primary, fontSize: 20, fontWeight: '800' },
   rangeLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -18 },
-  rangeLabel: { color: COLORS.muted, fontSize: 8, fontWeight: '800', letterSpacing: 1 },
+  rangeLabel: { color: COLORS.muted, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
   doneButton: {
     alignItems: 'center',
     backgroundColor: COLORS.primary,

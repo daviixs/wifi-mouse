@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { COLORS, RADIUS, SPACE } from '../theme/tokens';
+import { COLORS, RADIUS, SHADOWS, SPACE } from '../theme/tokens';
 import { ConnectionStatus } from '../components/ConnectionStatus';
 import { MouseButton } from '../components/MouseButton';
 import { KeyboardModeControl } from '../components/KeyboardModeControl';
@@ -102,14 +102,15 @@ const styles = StyleSheet.create({
     height: 42,
     justifyContent: 'center',
     width: 42,
+    ...SHADOWS.floating,
   },
   connectionBlock: { flex: 1, gap: SPACE.xxs },
   deviceName: { color: COLORS.muted, fontSize: 11, maxWidth: 210 },
   touchArea: { flex: 1, paddingBottom: SPACE.xl, paddingTop: SPACE.md, position: 'relative' },
   controls: { gap: SPACE.sm, paddingBottom: SPACE.xxs },
   controlHint: { alignItems: 'center', gap: SPACE.xxs, marginBottom: SPACE.xxs },
-  controlEyebrow: { color: COLORS.muted, fontSize: 9, fontWeight: '800', letterSpacing: 1.7 },
-  controlDescription: { color: COLORS.muted, fontSize: 10 },
+  controlEyebrow: { color: COLORS.muted, fontSize: 10, fontWeight: '800', letterSpacing: 1.7 },
+  controlDescription: { color: COLORS.muted, fontSize: 12 },
   buttonRow: { flexDirection: 'row', position: 'relative' },
   buttonDivider: {
     backgroundColor: COLORS.border,
@@ -122,7 +123,7 @@ const styles = StyleSheet.create({
   },
   gestureHint: {
     color: COLORS.muted,
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: '700',
     letterSpacing: 1.1,
     paddingTop: SPACE.xxs,

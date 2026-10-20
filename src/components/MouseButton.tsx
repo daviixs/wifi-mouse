@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { COLORS, RADIUS, SPACE } from '../theme/tokens';
+import { COLORS, RADIUS, SHADOWS, SPACE } from '../theme/tokens';
 
 type MouseButtonProps = {
   label: string;
@@ -37,6 +37,7 @@ const styles = StyleSheet.create({
     gap: SPACE.xs,
     height: 62,
     justifyContent: 'center',
+    ...SHADOWS.floating,
   },
   left: { borderBottomLeftRadius: RADIUS.large, borderTopLeftRadius: RADIUS.large },
   right: { borderBottomRightRadius: RADIUS.large, borderTopRightRadius: RADIUS.large },

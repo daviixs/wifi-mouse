@@ -9,7 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { COLORS, RADIUS, SPACE } from '../theme/tokens';
+import { COLORS, RADIUS, SHADOWS, SPACE } from '../theme/tokens';
 import {
   addMotionDelta,
   applyMotionSensitivity,
@@ -186,14 +186,16 @@ export function Touchpad({ onCommand, sensitivity }: TouchpadProps) {
 const styles = StyleSheet.create({
   surface: {
     alignItems: 'center',
-    borderColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+    borderColor: '#E8EDF1',
     borderRadius: RADIUS.large,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     flex: 1,
     justifyContent: 'center',
     minHeight: 280,
     overflow: 'hidden',
     position: 'relative',
+    ...SHADOWS.card,
   },
   topLine: {
     backgroundColor: COLORS.accent,
@@ -224,7 +226,7 @@ const styles = StyleSheet.create({
   hint: { color: COLORS.muted, fontSize: 11, letterSpacing: 0.1 },
   cornerLabel: {
     color: COLORS.muted,
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '700',
     letterSpacing: 1.4,
     position: 'absolute',

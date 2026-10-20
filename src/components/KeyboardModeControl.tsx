@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Keyboard as KeyboardIcon, X } from 'lucide-react-native';
 
-import { COLORS, RADIUS, SPACE } from '../theme/tokens';
+import { COLORS, RADIUS, SHADOWS, SPACE } from '../theme/tokens';
 import { diffKeyboardText, splitKeyboardText } from '../services/keyboard/textDiff';
 import type { MouseCommand } from '../types/protocol';
 
@@ -105,6 +105,7 @@ const styles = StyleSheet.create({
     right: 14,
     top: 14,
     zIndex: 3,
+    ...SHADOWS.floating,
   },
   input: { color: COLORS.text, fontSize: 15, height: 48 },
   button: {
@@ -125,5 +126,5 @@ const styles = StyleSheet.create({
     zIndex: 3,
   },
   activeButton: { backgroundColor: COLORS.highlight, borderColor: COLORS.border },
-  buttonLabel: { color: COLORS.text, fontSize: 9, fontWeight: '800', letterSpacing: 1.1 },
+  buttonLabel: { color: COLORS.text, fontSize: 11, fontWeight: '800', letterSpacing: 1.1 },
 });

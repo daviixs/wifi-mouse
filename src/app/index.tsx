@@ -16,7 +16,7 @@ import { ArrowRight, Wifi } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FirstRunSetupNotice } from '../components/FirstRunSetupNotice';
-import { COLORS, RADIUS, SPACE } from '../theme/tokens';
+import { COLORS, RADIUS, SHADOWS, SPACE } from '../theme/tokens';
 import { isValidIpv4Address } from '../services/websocket/serverUrl';
 import { useConnectionStore } from '../stores/connection.store';
 
@@ -173,20 +173,21 @@ const styles = StyleSheet.create({
   },
   connectionCard: {
     backgroundColor: COLORS.surface,
-    borderColor: COLORS.border,
+    borderColor: '#E8EDF1',
     borderRadius: RADIUS.large,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     marginTop: SPACE.xxl,
     padding: SPACE.lg,
+    ...SHADOWS.card,
   },
   cardHeading: { marginBottom: SPACE.xl },
   cardHeadingCopy: { gap: SPACE.xxs },
   cardTitle: { color: COLORS.text, fontSize: 14, fontWeight: '700' },
-  cardSubtitle: { color: COLORS.muted, fontSize: 11 },
-  inputLabel: { color: COLORS.muted, fontSize: 9, fontWeight: '800', letterSpacing: 1.4 },
+  cardSubtitle: { color: COLORS.muted, fontSize: 12 },
+  inputLabel: { color: COLORS.muted, fontSize: 10, fontWeight: '800', letterSpacing: 1.4 },
   input: {
     backgroundColor: COLORS.background,
-    borderColor: COLORS.border,
+    borderColor: '#A9BBC6',
     borderRadius: RADIUS.medium,
     borderWidth: 1,
     color: COLORS.text,
@@ -213,7 +214,7 @@ const styles = StyleSheet.create({
     minHeight: 54,
     paddingHorizontal: SPACE.lg,
   },
-  connectButtonPressed: { backgroundColor: COLORS.secondary, transform: [{ scale: 0.99 }] },
+  connectButtonPressed: { backgroundColor: COLORS.primary, transform: [{ scale: 0.99 }] },
   connectButtonDisabled: { opacity: 0.65 },
   connectButtonLabel: {
     color: COLORS.surface,
@@ -229,5 +230,5 @@ const styles = StyleSheet.create({
     marginTop: SPACE.lg,
     maxWidth: 300,
   },
-  networkNoteText: { color: COLORS.muted, flex: 1, fontSize: 11, lineHeight: 16 },
+  networkNoteText: { color: COLORS.muted, flex: 1, fontSize: 12, lineHeight: 17 },
 });
