@@ -15,7 +15,8 @@
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
         },
-        "NSLocalNetworkUsageDescription": "O Remote Mouse encontra e controla computadores na mesma rede Wi-Fi."
+        "NSLocalNetworkUsageDescription": "O Remote Mouse usa a rede local para encontrar e controlar computadores na mesma rede Wi-Fi.",
+        "NSBonjourServices": ["_remotemouse._tcp"]
       }
     },
     "android": {
@@ -25,7 +26,12 @@
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_WIFI_STATE",
+        "android.permission.CHANGE_WIFI_MULTICAST_STATE"
+      ]
     },
     "web": {
       "output": "static",

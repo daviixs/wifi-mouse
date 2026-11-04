@@ -1,0 +1,8 @@
+{
+  "name": "service-discovery",
+  "version": "0.1.0",
+  "description": "Browses DNS-SD (Bonjour/mDNS) services on the local network: Android NsdManager, iOS NetServiceBrowser (Remote Mouse).",
+  "main": "src/index.ts",
+  "license": "MIT",
+  "private": true
+}

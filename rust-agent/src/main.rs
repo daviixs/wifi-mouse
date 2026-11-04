@@ -1,4 +1,5 @@
 mod diagnostics;
+mod discovery;
 mod input;
 mod protocol;
 
@@ -36,6 +37,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut mouse = input::MouseController::new(mouse);
 
     print_listen_addresses(bind_address);
+    let advertisement = match discovery::Advertisement::start(bind_address.port()) {
+        Ok(advertisement) => {
+            println!(
+                "Anunciando \"{}\" na rede via mDNS ({}) — o app encontra este computador automaticamente.",
+                advertisement.instance_name,
+                discovery::SERVICE_TYPE
+            );
+            Some(advertisement)
+        }
+        Err(error) => {
+            eprintln!("Aviso: não foi possível anunciar via mDNS ({error}). Use o IP manualmente.");
+            None
+        }
+    };
     println!("Pressione Ctrl+C para encerrar.");
 
     let mut shutdown: Pin<Box<dyn Future<Output = ()>>> = Box::pin(async {
@@ -49,7 +64,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 break;
             }
             accepted = listener.accept() => {
-                let (stream, peer) = accepted?;
+                let (stream, peer) = match accepted {
+                    Ok(accepted) => accepted,
+                    Err(error) => {
+                        eprintln!("Falha ao aceitar conexão: {error}");
+                        continue;
+                    }
+                };
                 println!("Conexão recebida de {peer}.");
                 if let Err(error) = serve_connection(stream, &mut mouse, &mut shutdown).await {
                     eprintln!("Conexão {peer} encerrada com erro: {error}");
@@ -57,6 +78,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 println!("Conexão {peer} encerrada.");
             }
         }
+    }
+
+    if let Some(advertisement) = advertisement {
+        advertisement.shutdown();
+        println!("Anúncio mDNS removido.");
     }
 
     Ok(())

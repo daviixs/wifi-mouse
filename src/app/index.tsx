@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
@@ -16,6 +16,7 @@ import {
 import { router } from 'expo-router';
 import { Laptop, Wifi } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { AppHeader } from '../components/ui/AppHeader';
 import { GlassCard } from '../components/ui/GlassCard';
@@ -27,6 +28,17 @@ import { FirstRunOnboarding } from '../components/FirstRunOnboarding';
 import { COLORS, RADIUS, SPACE } from '../theme/tokens';
 import { isValidIpv4Address } from '../services/websocket/serverUrl';
 import { useConnectionStore } from '../stores/connection.store';
+import { DiscoveredComputers } from '../components/DiscoveredComputers';
+import { useComputerDiscovery } from '../hooks/useComputerDiscovery';
+import {
+  withLastComputerFirst,
+  type DiscoveredComputer,
+} from '../services/discovery/discoveredComputers';
+import {
+  loadLastComputer,
+  saveLastComputer,
+  type LastComputer,
+} from '../services/discovery/lastComputer';
 
 export default function HomeScreen() {
   const [address, setAddress] = useState('');
@@ -39,10 +51,25 @@ export default function HomeScreen() {
   const isConnecting = pendingAddress !== null;
   const { width } = useWindowDimensions();
   const heroWidth = Math.min(width * 0.78, 340);
+  const [lastComputer, setLastComputer] = useState<LastComputer | null>(null);
+  const discovery = useComputerDiscovery();
+  const computers = withLastComputerFirst(discovery.computers, lastComputer);
 
-  const connect = async () => {
+  useEffect(() => {
+    let active = true;
+    void loadLastComputer(AsyncStorage).then((stored) => {
+      if (!active || !stored) return;
+      setLastComputer(stored);
+      setAddress((current) => current || stored.ip);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const connect = async (target?: DiscoveredComputer) => {
     if (isConnecting) return;
-    const normalizedAddress = address.trim();
+    const normalizedAddress = target ? target.ip : address.trim();
     if (!isValidIpv4Address(normalizedAddress)) {
       setValidationMessage('Digite um endereço IPv4 válido, como 192.168.1.10.');
       return;
@@ -60,6 +87,14 @@ export default function HomeScreen() {
     }
     setPendingAddress(null);
     if (outcome.kind === 'connected') {
+      const remembered: LastComputer = {
+        ip: normalizedAddress,
+        name: target?.name ?? (lastComputer?.ip === normalizedAddress ? lastComputer.name : null),
+        id: target?.id ?? (lastComputer?.ip === normalizedAddress ? lastComputer.id : null),
+      };
+      setLastComputer(remembered);
+      setAddress(normalizedAddress);
+      void saveLastComputer(AsyncStorage, remembered);
       router.push('/conectado');
     } else if (outcome.kind === 'failed') {
       setConnectionError(outcome.error);
@@ -96,10 +131,25 @@ export default function HomeScreen() {
                   Conecte o celular e o computador à mesma rede Wi-Fi para começar.
                 </Text>
 
+                <DiscoveredComputers
+                  computers={computers}
+                  disabled={isConnecting}
+                  isAvailable={discovery.isAvailable}
+                  lastComputerId={lastComputer?.id ?? null}
+                  lastComputerIp={lastComputer?.ip ?? null}
+                  onRefresh={discovery.refresh}
+                  onSelect={(computer) => void connect(computer)}
+                  status={discovery.status}
+                />
+
                 <GlassCard style={styles.connectionCard}>
                   <View style={styles.cardHeading}>
-                    <Text style={styles.cardTitle}>Conectar ao computador</Text>
-                    <Text style={styles.cardSubtitle}>Informe o endereço IP do agente</Text>
+                    <Text style={styles.cardTitle}>Ou digite o IP manualmente</Text>
+                    <Text style={styles.cardSubtitle}>
+                      {lastComputer?.name
+                        ? `Último conectado: ${lastComputer.name}`
+                        : 'Informe o endereço IP do agente'}
+                    </Text>
                   </View>
 
                   <Text style={styles.inputLabel}>IP DO COMPUTADOR</Text>
@@ -220,7 +270,7 @@ const styles = StyleSheet.create({
     maxWidth: 340,
     textAlign: 'center',
   },
-  connectionCard: { marginTop: SPACE.xl, padding: SPACE.lg, paddingTop: SPACE.xl },
+  connectionCard: { marginTop: SPACE.lg, padding: SPACE.lg, paddingTop: SPACE.xl },
   cardHeading: { alignItems: 'center', gap: SPACE.xxs, marginBottom: SPACE.lg },
   cardTitle: { color: COLORS.text, fontSize: 18, fontWeight: '700' },
   cardSubtitle: { color: COLORS.muted, fontSize: 14 },
