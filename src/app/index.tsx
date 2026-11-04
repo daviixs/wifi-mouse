@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -25,12 +26,14 @@ export default function HomeScreen() {
   const [address, setAddress] = useState('');
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [isMacHelpVisible, setIsMacHelpVisible] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [pendingAddress, setPendingAddress] = useState<string | null>(null);
   const connectToServer = useConnectionStore((state) => state.connectToServer);
-  const isConnecting = useConnectionStore(
-    (state) => state.status === 'connecting' || state.status === 'reconnecting',
-  );
+  const cancelConnection = useConnectionStore((state) => state.cancelConnection);
+  const isConnecting = pendingAddress !== null;
 
-  const connect = () => {
+  const connect = async () => {
+    if (isConnecting) return;
     const normalizedAddress = address.trim();
     if (!isValidIpv4Address(normalizedAddress)) {
       setValidationMessage('Digite um endereço IPv4 válido, como 192.168.1.10.');
@@ -39,8 +42,24 @@ export default function HomeScreen() {
 
     Keyboard.dismiss();
     setValidationMessage(null);
-    connectToServer(normalizedAddress);
-    router.push('/touchpad');
+    setConnectionError(null);
+    setPendingAddress(normalizedAddress);
+    let outcome;
+    try {
+      outcome = await connectToServer(normalizedAddress);
+    } catch {
+      outcome = { kind: 'failed' as const, error: 'Não foi possível conectar ao computador.' };
+    }
+    setPendingAddress(null);
+    if (outcome.kind === 'connected') {
+      router.push('/touchpad');
+    } else if (outcome.kind === 'failed') {
+      setConnectionError(outcome.error);
+    }
+  };
+
+  const cancel = () => {
+    cancelConnection();
   };
 
   return (
@@ -98,8 +117,10 @@ export default function HomeScreen() {
                   onChangeText={(value) => {
                     setAddress(value.replace(/[^\d.,]/g, '').replace(/,/g, '.'));
                     if (validationMessage) setValidationMessage(null);
+                    if (connectionError) setConnectionError(null);
                   }}
-                  onSubmitEditing={connect}
+                  editable={!isConnecting}
+                  onSubmitEditing={() => void connect()}
                   placeholder="192.168.1.10"
                   placeholderTextColor={COLORS.muted}
                   returnKeyType="go"
@@ -111,12 +132,18 @@ export default function HomeScreen() {
                     {validationMessage}
                   </Text>
                 )}
+                {connectionError && (
+                  <View accessibilityLiveRegion="assertive" style={styles.errorBox}>
+                    <Text style={styles.errorTitle}>Falha na conexão</Text>
+                    <Text style={styles.errorText}>{connectionError}</Text>
+                  </View>
+                )}
 
                 <Pressable
                   accessibilityRole="button"
                   accessibilityState={{ disabled: isConnecting }}
                   disabled={isConnecting}
-                  onPress={connect}
+                  onPress={() => void connect()}
                   style={({ pressed }) => [
                     styles.connectButton,
                     pressed && styles.connectButtonPressed,
@@ -137,10 +164,28 @@ export default function HomeScreen() {
                 </Text>
               </View>
             </View>
-
           </ScrollView>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
+      {pendingAddress && (
+        <View accessibilityViewIsModal style={styles.loadingOverlay}>
+          <View style={styles.loadingCard}>
+            <ActivityIndicator color={COLORS.primary} size="large" />
+            <Text style={styles.loadingTitle}>Conectando...</Text>
+            <Text style={styles.loadingSubtitle}>
+              Aguardando resposta do computador em {pendingAddress}
+            </Text>
+            <Pressable
+              accessibilityLabel="Cancelar tentativa de conexão"
+              accessibilityRole="button"
+              onPress={cancel}
+              style={({ pressed }) => [styles.cancelButton, pressed && styles.cancelButtonPressed]}
+            >
+              <Text style={styles.cancelButtonLabel}>Cancelar</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
       <FirstRunOnboarding />
       <FirstRunSetupNotice
         onDismiss={() => setIsMacHelpVisible(false)}
@@ -256,6 +301,52 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginRight: SPACE.xs,
   },
+  errorBox: {
+    backgroundColor: '#FDECEC',
+    borderColor: COLORS.danger,
+    borderRadius: RADIUS.medium,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: SPACE.xxs,
+    marginTop: SPACE.sm,
+    padding: SPACE.sm,
+  },
+  errorTitle: { color: COLORS.danger, fontSize: 12, fontWeight: '800' },
+  errorText: { color: COLORS.text, fontSize: 12, lineHeight: 17 },
+  loadingOverlay: {
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'center',
+    padding: SPACE.xl,
+  },
+  loadingCard: {
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.large,
+    gap: SPACE.sm,
+    maxWidth: 360,
+    padding: SPACE.xl,
+    width: '100%',
+    ...SHADOWS.card,
+  },
+  loadingTitle: { color: COLORS.text, fontSize: 18, fontWeight: '700' },
+  loadingSubtitle: { color: COLORS.muted, fontSize: 13, textAlign: 'center' },
+  cancelButton: {
+    alignItems: 'center',
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.medium,
+    borderWidth: 1,
+    marginTop: SPACE.sm,
+    minHeight: 46,
+    justifyContent: 'center',
+    paddingHorizontal: SPACE.xl,
+  },
+  cancelButtonPressed: { opacity: 0.7 },
+  cancelButtonLabel: { color: COLORS.text, fontSize: 14, fontWeight: '700' },
   networkNote: {
     alignItems: 'center',
     alignSelf: 'center',

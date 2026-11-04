@@ -5,11 +5,22 @@ export type SocketStatus = 'disconnected' | 'connecting' | 'connected' | 'reconn
 
 type StatusListener = (status: SocketStatus, error?: string) => void;
 
+export const CONNECTION_ERROR_MESSAGES = {
+  initialFailure:
+    'Não foi possível conectar ao computador. Verifique se o IP está correto, se o celular e o computador estão na mesma rede Wi-Fi, se o agente Remote Mouse está aberto e se o firewall libera a porta 8765.',
+  timeout:
+    'O computador não respondeu a tempo. Verifique o IP, se ambos estão na mesma rede Wi-Fi, se o agente está aberto e se o firewall libera a porta 8765.',
+  connectionLost: 'Conexão perdida. Tentando reconectar…',
+  reconnectLimit: 'Limite de tentativas de reconexão atingido.',
+} as const;
+
 export class WebSocketClient {
   private connection: WebSocket | null = null;
   private url: string | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempts = 0;
+  private openTimer: ReturnType<typeof setTimeout> | null = null;
+  private hasOpened = false;
   private manuallyClosed = true;
   private currentStatus: SocketStatus = 'disconnected';
   private readonly listeners = new Set<StatusListener>();
@@ -33,6 +44,7 @@ export class WebSocketClient {
     this.url = url;
     this.manuallyClosed = false;
     this.reconnectAttempts = 0;
+    this.hasOpened = false;
     this.open();
   }
 
@@ -41,6 +53,15 @@ export class WebSocketClient {
     this.url = null;
     this.clearTimers();
     if (clearQueue) this.queue.length = 0;
+    this.detachConnection();
+    this.setStatus('disconnected');
+  }
+
+  get status(): SocketStatus {
+    return this.currentStatus;
+  }
+
+  private detachConnection(): void {
     const connection = this.connection;
     this.connection = null;
     if (connection) {
@@ -48,9 +69,22 @@ export class WebSocketClient {
       connection.onmessage = null;
       connection.onerror = null;
       connection.onclose = null;
-      connection.close();
+      try {
+        connection.close();
+      } catch {
+        // Ignore: the socket may already be closed.
+      }
     }
-    this.setStatus('disconnected');
+  }
+
+  /** The first attempt failed before any open event: stop and report instead of retrying. */
+  private failInitialAttempt(message: string): void {
+    this.manuallyClosed = true;
+    this.url = null;
+    this.clearTimers();
+    this.queue.length = 0;
+    this.detachConnection();
+    this.setStatus('error', message);
   }
 
   send(command: MouseCommand): boolean {
@@ -71,30 +105,58 @@ export class WebSocketClient {
 
   private open(): void {
     if (!this.url || this.manuallyClosed) return;
-    this.setStatus(this.reconnectAttempts > 0 ? 'reconnecting' : 'connecting');
+    if (this.reconnectAttempts > 0) {
+      this.setStatus('reconnecting', CONNECTION_ERROR_MESSAGES.connectionLost);
+    } else {
+      this.setStatus('connecting');
+    }
 
     try {
       const connection = new WebSocket(this.url);
       this.connection = connection;
+      this.openTimer = setTimeout(() => {
+        this.openTimer = null;
+        if (this.connection !== connection) return;
+        if (!this.hasOpened) {
+          this.failInitialAttempt(CONNECTION_ERROR_MESSAGES.timeout);
+          return;
+        }
+        this.detachConnection();
+        this.scheduleReconnect();
+      }, APP_CONFIG.connectTimeoutMs);
       connection.onopen = () => {
         if (this.connection !== connection) return;
+        this.clearOpenTimer();
+        this.hasOpened = true;
         this.reconnectAttempts = 0;
         this.setStatus('connected');
         this.flush();
       };
       connection.onerror = () => {
-        if (this.connection === connection) this.setStatus('error', 'Falha na conexão WebSocket.');
+        if (this.connection !== connection) return;
+        if (!this.hasOpened) {
+          this.failInitialAttempt(CONNECTION_ERROR_MESSAGES.initialFailure);
+          return;
+        }
+        // After a successful session, onclose follows and drives the reconnect.
       };
       connection.onclose = () => {
         if (this.connection !== connection) return;
+        this.clearOpenTimer();
+        if (!this.hasOpened) {
+          this.failInitialAttempt(CONNECTION_ERROR_MESSAGES.initialFailure);
+          return;
+        }
         this.connection = null;
         this.scheduleReconnect();
       };
-    } catch (error) {
-      this.setStatus(
-        'error',
-        error instanceof Error ? error.message : 'Não foi possível conectar.',
-      );
+    } catch {
+      this.clearOpenTimer();
+      if (!this.hasOpened) {
+        this.failInitialAttempt(CONNECTION_ERROR_MESSAGES.initialFailure);
+        return;
+      }
+      this.connection = null;
       this.scheduleReconnect();
     }
   }
@@ -103,12 +165,13 @@ export class WebSocketClient {
     if (this.manuallyClosed || !this.url) return;
     const { initialDelayMs, maxDelayMs, maxAttempts } = APP_CONFIG.reconnect;
     if (maxAttempts > 0 && this.reconnectAttempts >= maxAttempts) {
-      this.setStatus('error', 'Limite de tentativas de reconexão atingido.');
+      this.manuallyClosed = true;
+      this.setStatus('error', CONNECTION_ERROR_MESSAGES.reconnectLimit);
       return;
     }
     const delay = Math.min(initialDelayMs * 2 ** this.reconnectAttempts, maxDelayMs);
     this.reconnectAttempts += 1;
-    this.setStatus('reconnecting');
+    this.setStatus('reconnecting', CONNECTION_ERROR_MESSAGES.connectionLost);
     this.reconnectTimer = setTimeout(() => this.open(), delay);
   }
 
@@ -208,6 +271,12 @@ export class WebSocketClient {
   private clearTimers(): void {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     this.reconnectTimer = null;
+    this.clearOpenTimer();
+  }
+
+  private clearOpenTimer(): void {
+    if (this.openTimer) clearTimeout(this.openTimer);
+    this.openTimer = null;
   }
 
   private setStatus(status: SocketStatus, error?: string): void {

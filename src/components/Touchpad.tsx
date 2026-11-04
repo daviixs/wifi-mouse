@@ -61,6 +61,7 @@ export function Touchpad({ onCommand, sensitivity }: TouchpadProps) {
       onCommand({ version: 1, type: 'mouse.click', payload: { button } });
     };
     const flushPendingMotion = () => {
+      'worklet';
       const kind = pendingKind.get();
       if (!kind) return;
       const dx = pendingDx.get();
