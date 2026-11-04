@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
@@ -9,9 +9,11 @@ import { COLORS, RADIUS, SHADOWS, SPACE } from '../theme/tokens';
 import { ConnectionStatus } from '../components/ConnectionStatus';
 import { MouseButton } from '../components/MouseButton';
 import { KeyboardModeControl } from '../components/KeyboardModeControl';
+import { MediaBar, MediaPanel } from '../components/MediaControls';
 import { ShortcutsControl } from '../components/ShortcutsControl';
 import { SensitivityControl } from '../components/SensitivityControl';
 import { Touchpad } from '../components/Touchpad';
+import { useComputerVolumeKeys } from '../hooks/useComputerVolumeKeys';
 import { useConnectionStore } from '../stores/connection.store';
 import { usePreferencesStore } from '../stores/preferences.store';
 import type { MouseCommand } from '../types/protocol';
@@ -26,6 +28,11 @@ export default function TouchpadScreen() {
   const sensitivity = usePreferencesStore((state) => state.sensitivity);
   const setSensitivity = usePreferencesStore((state) => state.setSensitivity);
   const hydratePreferences = usePreferencesStore((state) => state.hydrate);
+  const useVolumeKeys = usePreferencesStore((state) => state.useVolumeKeys);
+  const setUseVolumeKeys = usePreferencesStore((state) => state.setUseVolumeKeys);
+  const [isMediaOpen, setIsMediaOpen] = useState(false);
+
+  useComputerVolumeKeys();
 
   useEffect(() => {
     void hydratePreferences();
@@ -97,6 +104,7 @@ export default function TouchpadScreen() {
           </View>
 
           <View style={styles.controls}>
+            <MediaBar onCommand={sendCommand} onOpenPanel={() => setIsMediaOpen(true)} />
             <View style={styles.controlHint}>
               <Text style={styles.controlEyebrow}>BOTÕES DO MOUSE</Text>
               <Text style={styles.controlDescription}>Pressione para clicar</Text>
@@ -112,6 +120,13 @@ export default function TouchpadScreen() {
           </View>
         </View>
       </SafeAreaView>
+      <MediaPanel
+        onClose={() => setIsMediaOpen(false)}
+        onCommand={sendCommand}
+        onUseVolumeKeysChange={setUseVolumeKeys}
+        useVolumeKeys={useVolumeKeys}
+        visible={isMediaOpen}
+      />
     </ScreenBackground>
   );
 }

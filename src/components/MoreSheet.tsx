@@ -12,6 +12,7 @@ import {
 } from '../services/mouse/sensitivity';
 import { buildShortcutCommand, type ShortcutOption } from '../services/keyboard/shortcuts';
 import type { MouseCommand } from '../types/protocol';
+import { VolumeKeysToggle } from './MediaControls';
 import { ShortcutsList } from './ShortcutsControl';
 
 type MoreSheetProps = {
@@ -20,19 +21,23 @@ type MoreSheetProps = {
   onCommand: (command: MouseCommand) => void;
   sensitivity: number;
   onSensitivityChange: (value: number) => void;
+  useVolumeKeys: boolean;
+  onUseVolumeKeysChange: (value: boolean) => void;
 };
 
 function formatSensitivity(value: number): string {
   return `${normalizeSensitivity(value).toFixed(1).replace('.', ',')}×`;
 }
 
-/** Bottom sheet with cursor sensitivity and keyboard shortcuts. */
+/** Bottom sheet with cursor sensitivity, volume-key setting and keyboard shortcuts. */
 export function MoreSheet({
   visible,
   onClose,
   onCommand,
   sensitivity,
   onSensitivityChange,
+  useVolumeKeys,
+  onUseVolumeKeysChange,
 }: MoreSheetProps) {
   const insets = useSafeAreaInsets();
 
@@ -85,6 +90,8 @@ export function MoreSheet({
               value={sensitivity}
             />
           </View>
+
+          <VolumeKeysToggle onChange={onUseVolumeKeysChange} value={useVolumeKeys} />
 
           <Text style={styles.eyebrow}>ATALHOS</Text>
           <View style={styles.shortcuts}>

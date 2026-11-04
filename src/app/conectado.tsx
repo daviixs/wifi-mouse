@@ -1,15 +1,17 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
-import { Check, Keyboard, LayoutGrid, Laptop, Mouse, WifiOff } from 'lucide-react-native';
+import { Check, Keyboard, LayoutGrid, Laptop, Mouse, Music2, WifiOff } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FirstRunSetupNotice } from '../components/FirstRunSetupNotice';
+import { MediaPanel } from '../components/MediaControls';
 import { MoreSheet } from '../components/MoreSheet';
 import { LaptopIllustration } from '../components/illustrations/LaptopIllustration';
 import { AppHeader } from '../components/ui/AppHeader';
 import { GlassCard } from '../components/ui/GlassCard';
 import { ScreenBackground } from '../components/ui/ScreenBackground';
+import { useComputerVolumeKeys } from '../hooks/useComputerVolumeKeys';
 import { useConnectionStore } from '../stores/connection.store';
 import { usePreferencesStore } from '../stores/preferences.store';
 import { COLORS, RADIUS, SHADOWS, SPACE } from '../theme/tokens';
@@ -37,6 +39,7 @@ export default function ConnectedScreen() {
   const { width } = useWindowDimensions();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [isHelpVisible, setIsHelpVisible] = useState(false);
+  const [isMediaOpen, setIsMediaOpen] = useState(false);
   const deviceName = useConnectionStore((state) => state.deviceName);
   const status = useConnectionStore((state) => state.status);
   const connectionError = useConnectionStore((state) => state.error);
@@ -45,6 +48,10 @@ export default function ConnectedScreen() {
   const sensitivity = usePreferencesStore((state) => state.sensitivity);
   const setSensitivity = usePreferencesStore((state) => state.setSensitivity);
   const hydratePreferences = usePreferencesStore((state) => state.hydrate);
+  const useVolumeKeys = usePreferencesStore((state) => state.useVolumeKeys);
+  const setUseVolumeKeys = usePreferencesStore((state) => state.setUseVolumeKeys);
+
+  useComputerVolumeKeys();
 
   useEffect(() => {
     void hydratePreferences();
@@ -58,6 +65,7 @@ export default function ConnectedScreen() {
 
   const leave = () => {
     setIsMoreOpen(false);
+    setIsMediaOpen(false);
     disconnect();
     if (router.canDismiss()) router.dismissTo('/');
     else router.replace('/');
@@ -114,6 +122,12 @@ export default function ConnectedScreen() {
               onPress={() => router.push({ pathname: '/touchpad', params: { teclado: '1' } })}
             />
             <Tile
+              hint="Volume e controle de mídia do computador"
+              icon={<Music2 color={COLORS.text} size={30} strokeWidth={1.6} />}
+              label="Mídia"
+              onPress={() => setIsMediaOpen(true)}
+            />
+            <Tile
               hint="Atalhos e sensibilidade"
               icon={
                 <LayoutGrid color={COLORS.text} fill={COLORS.text} size={30} strokeWidth={1.4} />
@@ -139,8 +153,17 @@ export default function ConnectedScreen() {
         onClose={() => setIsMoreOpen(false)}
         onCommand={sendCommand}
         onSensitivityChange={setSensitivity}
+        onUseVolumeKeysChange={setUseVolumeKeys}
         sensitivity={sensitivity}
+        useVolumeKeys={useVolumeKeys}
         visible={isMoreOpen}
+      />
+      <MediaPanel
+        onClose={() => setIsMediaOpen(false)}
+        onCommand={sendCommand}
+        onUseVolumeKeysChange={setUseVolumeKeys}
+        useVolumeKeys={useVolumeKeys}
+        visible={isMediaOpen}
       />
       <FirstRunSetupNotice onDismiss={() => setIsHelpVisible(false)} visible={isHelpVisible} />
     </ScreenBackground>
@@ -202,8 +225,14 @@ const styles = StyleSheet.create({
   statusLabel: { fontSize: 14, fontWeight: '600' },
   tiles: { flexDirection: 'row', gap: SPACE.sm, marginTop: SPACE.xs },
   tileShell: { flex: 1 },
-  tile: { alignItems: 'center', gap: SPACE.sm, justifyContent: 'center', minHeight: 112 },
-  tileLabel: { color: COLORS.text, fontSize: 14, fontWeight: '500' },
+  tile: {
+    alignItems: 'center',
+    gap: SPACE.sm,
+    justifyContent: 'center',
+    minHeight: 104,
+    paddingHorizontal: 2,
+  },
+  tileLabel: { color: COLORS.text, fontSize: 13, fontWeight: '500' },
   disconnect: {
     alignItems: 'center',
     backgroundColor: 'rgba(40, 56, 150, 0.18)',

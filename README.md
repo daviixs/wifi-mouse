@@ -80,3 +80,12 @@ npm run lint
 npm run test:motion
 npx expo-doctor
 ```
+
+## Mídia e volume do computador
+
+- Comando `media.key` (`{"version":1,"type":"media.key","payload":{"key":"volume_up"}}`), chaves: `volume_up`, `volume_down`, `volume_mute`, `play_pause`, `next`, `previous`, `stop`. Chaves desconhecidas são rejeitadas no app e ignoradas (com log) pelo agente.
+- Agente: teclas de mídia do `enigo` (Windows: `VK_VOLUME_*`/`VK_MEDIA_*`; macOS: eventos `NX_SYSDEFINED` de tecla auxiliar, enviados pelo próprio enigo). No macOS não existe tecla "stop", então `stop` é ignorado.
+- Botões físicos de volume (opção "Usar botões de volume do celular", ligada por padrão), ativos nas telas Conectado e Touchpad enquanto conectado:
+  - **Android**: módulo Expo local `modules/volume-keys` registra um `ReactActivityHandler` (`onKeyDown/onKeyUp`), consome `KEYCODE_VOLUME_UP/DOWN` e envia ao computador. O volume do celular não muda e o HUD não aparece. Segurar o botão repete. Não funciona com a tela bloqueada nem com o app em segundo plano.
+  - **iOS (melhor esforço)**: não há API pública para interceptar os botões. O módulo observa `AVAudioSession.outputVolume`, envia a direção e restaura o volume com um `MPVolumeView` oculto (que também esconde o HUD). Em 0% ou 100% o volume é ajustado para 50% ao ativar. Pode perder pressões muito rápidas, e a App Store pode questionar o uso.
+  - Web/Expo Go: indisponível (no-op).

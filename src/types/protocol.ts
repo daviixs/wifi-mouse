@@ -67,10 +67,28 @@ export type KeyboardShortcutCommand = {
   payload: { modifiers: ShortcutModifier[]; key: ShortcutKey };
 };
 
+export const MEDIA_KEYS = [
+  'volume_up',
+  'volume_down',
+  'volume_mute',
+  'play_pause',
+  'next',
+  'previous',
+  'stop',
+] as const;
+export type MediaKey = (typeof MEDIA_KEYS)[number];
+
+export type MediaKeyCommand = {
+  version: 1;
+  type: 'media.key';
+  payload: { key: MediaKey };
+};
+
 export type MouseCommand =
   | MouseMoveCommand
   | MouseClickCommand
   | MouseScrollCommand
   | KeyboardTextCommand
   | KeyboardKeyCommand
-  | KeyboardShortcutCommand;
+  | KeyboardShortcutCommand
+  | MediaKeyCommand;

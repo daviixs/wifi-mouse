@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["VolumeKeysModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.volumekeys.VolumeKeysModule"]
+  }
+}
