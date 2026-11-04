@@ -18,6 +18,7 @@ enum CommandKind {
     Scroll,
     KeyboardText,
     KeyboardKey,
+    KeyboardShortcut,
 }
 
 impl CommandMetrics {
@@ -45,6 +46,11 @@ impl CommandMetrics {
             },
             MouseCommand::KeyboardKey { .. } => Self {
                 kind: CommandKind::KeyboardKey,
+                dx: 0.0,
+                dy: 0.0,
+            },
+            MouseCommand::KeyboardShortcut { .. } => Self {
+                kind: CommandKind::KeyboardShortcut,
                 dx: 0.0,
                 dy: 0.0,
             },
@@ -114,7 +120,9 @@ impl AgentDiagnostics {
                 self.window.scroll_dy += command.dy;
             }
             CommandKind::KeyboardText => self.window.keyboard_texts += 1,
-            CommandKind::KeyboardKey => self.window.keyboard_keys += 1,
+            CommandKind::KeyboardKey | CommandKind::KeyboardShortcut => {
+                self.window.keyboard_keys += 1
+            }
         }
 
         if let Some(error) = error {

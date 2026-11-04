@@ -8,6 +8,7 @@ import { COLORS, RADIUS, SHADOWS, SPACE } from '../theme/tokens';
 import { ConnectionStatus } from '../components/ConnectionStatus';
 import { MouseButton } from '../components/MouseButton';
 import { KeyboardModeControl } from '../components/KeyboardModeControl';
+import { ShortcutsControl } from '../components/ShortcutsControl';
 import { SensitivityControl } from '../components/SensitivityControl';
 import { Touchpad } from '../components/Touchpad';
 import { useConnectionStore } from '../stores/connection.store';
@@ -15,7 +16,6 @@ import { usePreferencesStore } from '../stores/preferences.store';
 import type { MouseCommand } from '../types/protocol';
 
 export default function TouchpadScreen() {
-  const deviceName = useConnectionStore((state) => state.deviceName);
   const sendCommand = useConnectionStore((state) => state.sendCommand);
   const disconnect = useConnectionStore((state) => state.disconnect);
   const status = useConnectionStore((state) => state.status);
@@ -56,10 +56,8 @@ export default function TouchpadScreen() {
           </Pressable>
           <View style={styles.connectionBlock}>
             <ConnectionStatus />
-            <Text style={styles.deviceName} numberOfLines={1}>
-              {deviceName ?? 'Computador'}
-            </Text>
           </View>
+          <View style={styles.headerSpacer} />
         </View>
 
         {isOffline && (
@@ -86,6 +84,7 @@ export default function TouchpadScreen() {
           <Touchpad onCommand={sendCommand} sensitivity={sensitivity} />
           <SensitivityControl sensitivity={sensitivity} onChange={setSensitivity} />
           <KeyboardModeControl onCommand={sendCommand} />
+          <ShortcutsControl onCommand={sendCommand} />
         </View>
 
         <View style={styles.controls}>
@@ -127,8 +126,8 @@ const styles = StyleSheet.create({
     width: 42,
     ...SHADOWS.floating,
   },
-  connectionBlock: { flex: 1, gap: SPACE.xxs },
-  deviceName: { color: COLORS.muted, fontSize: 11, maxWidth: 210 },
+  connectionBlock: { alignItems: 'center', flex: 1, justifyContent: 'center' },
+  headerSpacer: { height: 42, width: 42 },
   offlineBanner: {
     backgroundColor: '#FDECEC',
     borderColor: COLORS.danger,

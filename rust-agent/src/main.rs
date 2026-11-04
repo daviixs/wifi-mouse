@@ -2,7 +2,14 @@ mod diagnostics;
 mod input;
 mod protocol;
 
-use std::{env, error::Error, future::Future, net::SocketAddr, pin::Pin, time::Instant};
+use std::{
+    env,
+    error::Error,
+    future::Future,
+    net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket},
+    pin::Pin,
+    time::Instant,
+};
 
 use enigo::{Enigo, Settings};
 use futures_util::{SinkExt, StreamExt};
@@ -28,7 +35,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mouse = Enigo::new(&Settings::default())?;
     let mut mouse = input::MouseController::new(mouse);
 
-    println!("Remote Mouse Agent ouvindo em ws://{bind_address}");
+    print_listen_addresses(bind_address);
     println!("Pressione Ctrl+C para encerrar.");
 
     let mut shutdown: Pin<Box<dyn Future<Output = ()>>> = Box::pin(async {
@@ -53,6 +60,57 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     Ok(())
+}
+
+fn lan_ipv4_addresses() -> Vec<Ipv4Addr> {
+    let mut addresses: Vec<Ipv4Addr> = if_addrs::get_if_addrs()
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|interface| !interface.is_loopback())
+        .filter_map(|interface| match interface.ip() {
+            IpAddr::V4(ip) if !ip.is_loopback() && !ip.is_link_local() && !ip.is_unspecified() => {
+                Some(ip)
+            }
+            _ => None,
+        })
+        .collect();
+    if addresses.is_empty() {
+        // Fallback: let the OS pick the outbound interface (no packet is sent).
+        if let Ok(socket) = UdpSocket::bind("0.0.0.0:0")
+            && socket.connect("8.8.8.8:80").is_ok()
+            && let Ok(SocketAddr::V4(local)) = socket.local_addr()
+            && !local.ip().is_loopback()
+            && !local.ip().is_unspecified()
+        {
+            addresses.push(*local.ip());
+        }
+    }
+    addresses.sort();
+    addresses.dedup();
+    addresses
+}
+
+fn print_listen_addresses(bind_address: SocketAddr) {
+    let port = bind_address.port();
+    let addresses = match bind_address.ip() {
+        IpAddr::V4(ip) if ip.is_unspecified() => lan_ipv4_addresses(),
+        IpAddr::V4(ip) => vec![ip],
+        IpAddr::V6(_) => Vec::new(),
+    };
+    match addresses.as_slice() {
+        [] => {
+            println!("Remote Mouse ouvindo em ws://{bind_address}");
+            println!("Não foi possível detectar o IP da rede local; verifique o Wi-Fi.");
+        }
+        [ip] => println!("Remote Mouse ouvindo em ws://{ip}:{port} — digite {ip} no app"),
+        many => {
+            println!("Remote Mouse ouvindo na porta {port}. IPs desta máquina:");
+            for ip in many {
+                println!("  • ws://{ip}:{port} — digite {ip} no app");
+            }
+            println!("Use o IP da mesma rede Wi-Fi do celular.");
+        }
+    }
 }
 
 async fn serve_connection(
