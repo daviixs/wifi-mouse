@@ -178,7 +178,6 @@ export function Touchpad({ onCommand, sensitivity }: TouchpadProps) {
           <Text style={styles.title}>TOUCHPAD</Text>
           <Text style={styles.hint}>Deslize para mover · dois dedos para rolar</Text>
         </View>
-        <Text style={styles.cornerLabel}>01 — 02</Text>
       </Animated.View>
     </GestureDetector>
   );
@@ -225,13 +224,4 @@ const styles = StyleSheet.create({
   secondFinger: { height: 22, opacity: 0.45 },
   title: { color: COLORS.text, fontSize: 12, fontWeight: '800', letterSpacing: 3 },
   hint: { color: COLORS.muted, fontSize: 11, letterSpacing: 0.1 },
-  cornerLabel: {
-    color: COLORS.muted,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1.4,
-    position: 'absolute',
-    right: SPACE.lg,
-    top: 18,
-  },
 });

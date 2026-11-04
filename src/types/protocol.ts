@@ -30,9 +30,47 @@ export type KeyboardKeyCommand = {
   payload: { key: KeyboardKey };
 };
 
+export const SHORTCUT_MODIFIERS = ['ctrl', 'alt', 'shift', 'meta'] as const;
+export type ShortcutModifier = (typeof SHORTCUT_MODIFIERS)[number];
+
+export const SHORTCUT_KEYS = [
+  'tab',
+  'escape',
+  'enter',
+  'space',
+  'backspace',
+  'delete',
+  'f4',
+  'f5',
+  'left',
+  'right',
+  'up',
+  'down',
+  'a',
+  'c',
+  'd',
+  'n',
+  'q',
+  'r',
+  's',
+  't',
+  'v',
+  'w',
+  'x',
+  'z',
+] as const;
+export type ShortcutKey = (typeof SHORTCUT_KEYS)[number];
+
+export type KeyboardShortcutCommand = {
+  version: 1;
+  type: 'keyboard.shortcut';
+  payload: { modifiers: ShortcutModifier[]; key: ShortcutKey };
+};
+
 export type MouseCommand =
   | MouseMoveCommand
   | MouseClickCommand
   | MouseScrollCommand
   | KeyboardTextCommand
-  | KeyboardKeyCommand;
+  | KeyboardKeyCommand
+  | KeyboardShortcutCommand;
