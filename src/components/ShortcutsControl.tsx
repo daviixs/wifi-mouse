@@ -10,6 +10,33 @@ import {
 } from '../services/keyboard/shortcuts';
 import type { MouseCommand } from '../types/protocol';
 
+type ShortcutsListProps = { onSelect: (option: ShortcutOption) => void };
+
+/** Grouped shortcut buttons, reused by the touchpad modal and the "Mais" sheet. */
+export function ShortcutsList({ onSelect }: ShortcutsListProps) {
+  return (
+    <ScrollView contentContainerStyle={styles.list}>
+      {SHORTCUT_GROUPS.map((group) => (
+        <View key={group.title} style={styles.group}>
+          <Text style={styles.groupTitle}>{group.title}</Text>
+          {group.options.map((option) => (
+            <Pressable
+              key={option.id}
+              accessibilityLabel={`${option.label}: ${option.description}`}
+              accessibilityRole="button"
+              onPress={() => onSelect(option)}
+              style={({ pressed }) => [styles.option, pressed && styles.optionPressed]}
+            >
+              <Text style={styles.optionLabel}>{option.label}</Text>
+              <Text style={styles.optionDescription}>{option.description}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ))}
+    </ScrollView>
+  );
+}
+
 type ShortcutsControlProps = { onCommand: (command: MouseCommand) => void };
 
 export function ShortcutsControl({ onCommand }: ShortcutsControlProps) {
@@ -63,25 +90,7 @@ export function ShortcutsControl({ onCommand }: ShortcutsControlProps) {
                 <X color={COLORS.text} size={20} />
               </Pressable>
             </View>
-            <ScrollView contentContainerStyle={styles.list}>
-              {SHORTCUT_GROUPS.map((group) => (
-                <View key={group.title} style={styles.group}>
-                  <Text style={styles.groupTitle}>{group.title}</Text>
-                  {group.options.map((option) => (
-                    <Pressable
-                      key={option.id}
-                      accessibilityLabel={`${option.label}: ${option.description}`}
-                      accessibilityRole="button"
-                      onPress={() => sendShortcut(option)}
-                      style={({ pressed }) => [styles.option, pressed && styles.optionPressed]}
-                    >
-                      <Text style={styles.optionLabel}>{option.label}</Text>
-                      <Text style={styles.optionDescription}>{option.description}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              ))}
-            </ScrollView>
+            <ShortcutsList onSelect={sendShortcut} />
           </View>
         </View>
       </Modal>
@@ -115,7 +124,7 @@ const styles = StyleSheet.create({
   buttonLabel: { color: COLORS.text, fontSize: 11, fontWeight: '800', letterSpacing: 1.1 },
   modalRoot: {
     alignItems: 'center',
-    backgroundColor: 'rgba(23, 43, 54, 0.38)',
+    backgroundColor: 'rgba(2, 5, 25, 0.72)',
     flex: 1,
     justifyContent: 'center',
     padding: 24,

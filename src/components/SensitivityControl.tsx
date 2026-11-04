@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
   buttonLabel: { color: COLORS.text, fontSize: 12, fontWeight: '800' },
   modalRoot: {
     alignItems: 'center',
-    backgroundColor: 'rgba(23, 43, 54, 0.38)',
+    backgroundColor: 'rgba(2, 5, 25, 0.72)',
     flex: 1,
     justifyContent: 'center',
     padding: 24,
@@ -133,5 +133,5 @@ const styles = StyleSheet.create({
     height: 46,
     justifyContent: 'center',
   },
-  doneLabel: { color: COLORS.surface, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
+  doneLabel: { color: COLORS.onPrimary, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
 });

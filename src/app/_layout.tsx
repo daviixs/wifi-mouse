@@ -7,7 +7,7 @@ import { COLORS } from '../theme/tokens';
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: COLORS.background }}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       <Stack
         screenOptions={{
           animation: 'fade_from_bottom',

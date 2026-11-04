@@ -84,7 +84,7 @@ function Step({ number, title, children }: StepProps) {
 
 const styles = StyleSheet.create({
   backdrop: {
-    backgroundColor: 'rgba(23, 43, 54, 0.42)',
+    backgroundColor: 'rgba(2, 5, 25, 0.72)',
     flex: 1,
   },
   safeArea: { flex: 1 },
@@ -142,6 +142,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACE.lg,
   },
   buttonPressed: { backgroundColor: COLORS.primary, transform: [{ scale: 0.99 }] },
-  buttonLabel: { color: COLORS.surface, fontSize: 14, fontWeight: '800' },
-  footnote: { color: COLORS.muted, fontSize: 11, lineHeight: 16, marginTop: SPACE.sm, textAlign: 'center' },
+  buttonLabel: { color: COLORS.onPrimary, fontSize: 14, fontWeight: '800' },
+  footnote: {
+    color: COLORS.muted,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: SPACE.sm,
+    textAlign: 'center',
+  },
 });

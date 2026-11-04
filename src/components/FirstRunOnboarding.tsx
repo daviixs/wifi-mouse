@@ -123,8 +123,8 @@ export function FirstRunOnboarding() {
                   </View>
                   <Text style={styles.summaryTitle}>Seu computador, na ponta dos dedos</Text>
                   <Text style={styles.summaryDescription}>
-                    Para conectar, deixe os dois dispositivos na mesma rede Wi-Fi, mantenha o
-                    Remote Mouse Agent aberto no computador e informe o IP dele na tela abaixo.
+                    Para conectar, deixe os dois dispositivos na mesma rede Wi-Fi, mantenha o Remote
+                    Mouse Agent aberto no computador e informe o IP dele na tela abaixo.
                   </Text>
                 </View>
 
@@ -144,7 +144,7 @@ export function FirstRunOnboarding() {
                   ]}
                 >
                   <Text style={styles.primaryButtonLabel}>Entendi</Text>
-                  <ArrowRight color={COLORS.surface} size={18} strokeWidth={2.5} />
+                  <ArrowRight color={COLORS.onPrimary} size={18} strokeWidth={2.5} />
                 </Pressable>
               </>
             ) : (
@@ -188,7 +188,7 @@ export function FirstRunOnboarding() {
                     style={({ pressed }) => [styles.primaryButton, pressed && styles.buttonPressed]}
                   >
                     <Text style={styles.primaryButtonLabel}>Continuar</Text>
-                    <ArrowRight color={COLORS.surface} size={18} strokeWidth={2.5} />
+                    <ArrowRight color={COLORS.onPrimary} size={18} strokeWidth={2.5} />
                   </Pressable>
                 </View>
               </>
@@ -211,7 +211,7 @@ function SummaryStep({ number, text }: { number: string; text: string }) {
 
 const styles = StyleSheet.create({
   backdrop: {
-    backgroundColor: 'rgba(23, 43, 54, 0.28)',
+    backgroundColor: 'rgba(2, 5, 25, 0.72)',
     flex: 1,
     justifyContent: 'flex-end',
   },
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
   },
   grabber: {
     alignSelf: 'center',
-    backgroundColor: '#CBD5DC',
+    backgroundColor: COLORS.border,
     borderRadius: RADIUS.pill,
     height: 5,
     marginBottom: SPACE.lg,
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
   heroOrb: {
     alignItems: 'center',
     backgroundColor: COLORS.surface,
-    borderColor: '#E8EDF1',
+    borderColor: COLORS.border,
     borderRadius: RADIUS.pill,
     borderWidth: 1,
     height: 116,
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
   secondaryIcon: {
     alignItems: 'center',
     backgroundColor: COLORS.surfaceSubtle,
-    borderColor: COLORS.surface,
+    borderColor: COLORS.onPrimary,
     borderRadius: RADIUS.pill,
     borderWidth: 3,
     bottom: 0,
@@ -270,12 +270,17 @@ const styles = StyleSheet.create({
   pageTitle: { color: COLORS.text, fontSize: 27, fontWeight: '700', letterSpacing: -0.6 },
   pageDescription: { color: COLORS.muted, fontSize: 15, lineHeight: 22 },
   footer: { gap: SPACE.lg, paddingTop: SPACE.sm },
-  pagination: { alignItems: 'center', flexDirection: 'row', gap: SPACE.xs, justifyContent: 'center' },
-  dot: { backgroundColor: '#C8D0D6', borderRadius: RADIUS.pill, height: 7, width: 7 },
+  pagination: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: SPACE.xs,
+    justifyContent: 'center',
+  },
+  dot: { backgroundColor: COLORS.border, borderRadius: RADIUS.pill, height: 7, width: 7 },
   activeDot: { backgroundColor: COLORS.primary, width: 20 },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#202124',
+    backgroundColor: COLORS.primary,
     borderRadius: RADIUS.pill,
     flexDirection: 'row',
     gap: SPACE.xs,
@@ -284,7 +289,7 @@ const styles = StyleSheet.create({
     ...SHADOWS.floating,
   },
   buttonPressed: { transform: [{ scale: 0.99 }] },
-  primaryButtonLabel: { color: COLORS.surface, fontSize: 15, fontWeight: '700' },
+  primaryButtonLabel: { color: COLORS.onPrimary, fontSize: 15, fontWeight: '700' },
   summaryHeader: { alignItems: 'center', gap: SPACE.sm },
   summaryIcon: {
     alignItems: 'center',
@@ -298,7 +303,7 @@ const styles = StyleSheet.create({
   summaryDescription: { color: COLORS.muted, fontSize: 14, lineHeight: 21, textAlign: 'center' },
   summarySteps: {
     backgroundColor: COLORS.surface,
-    borderColor: '#E8EDF1',
+    borderColor: COLORS.border,
     borderRadius: RADIUS.large,
     borderWidth: StyleSheet.hairlineWidth,
     gap: SPACE.md,

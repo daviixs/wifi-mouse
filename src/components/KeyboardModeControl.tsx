@@ -6,10 +6,14 @@ import { COLORS, RADIUS, SHADOWS, SPACE } from '../theme/tokens';
 import { diffKeyboardText, splitKeyboardText } from '../services/keyboard/textDiff';
 import type { MouseCommand } from '../types/protocol';
 
-type KeyboardModeControlProps = { onCommand: (command: MouseCommand) => void };
+type KeyboardModeControlProps = {
+  onCommand: (command: MouseCommand) => void;
+  /** Opens the text field (and the system keyboard) as soon as the control mounts. */
+  initialOpen?: boolean;
+};
 
-export function KeyboardModeControl({ onCommand }: KeyboardModeControlProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function KeyboardModeControl({ onCommand, initialOpen = false }: KeyboardModeControlProps) {
+  const [isOpen, setIsOpen] = useState(initialOpen);
   const [text, setText] = useState('');
   const inputRef = useRef<TextInput>(null);
   const previousText = useRef('');
