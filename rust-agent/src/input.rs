@@ -1,7 +1,8 @@
 use enigo::{Axis, Button, Coordinate, Direction, Enigo, InputResult, Key, Keyboard, Mouse};
 
 use crate::protocol::{
-    KeyboardKey, KeyboardShortcutPayload, MouseButton, MouseCommand, ShortcutKey, ShortcutModifier,
+    KeyboardKey, KeyboardShortcutPayload, MediaKey, MouseButton, MouseCommand, ShortcutKey,
+    ShortcutModifier,
 };
 
 const MAX_DELTA: f64 = 4096.0;
@@ -74,6 +75,7 @@ impl MouseController {
             MouseCommand::KeyboardShortcut { payload, .. } => {
                 apply_keyboard_shortcut(&mut self.mouse, &payload)
             }
+            MouseCommand::MediaKey { payload, .. } => apply_media_key(&mut self.mouse, payload.key),
         }
     }
 }
@@ -88,6 +90,32 @@ fn apply_keyboard_key(keyboard: &mut impl Keyboard, key: KeyboardKey) -> InputRe
         KeyboardKey::Enter => Key::Return,
     };
     keyboard.key(key, Direction::Click)
+}
+
+/// Maps a protocol media key to an enigo key. On macOS enigo posts these as
+/// NX_SYSDEFINED (NSSystemDefined subtype 8) aux-control events, the same
+/// events the hardware media keys produce. macOS has no "stop" media key, so
+/// `stop` returns `None` there and is ignored.
+fn media_key(key: MediaKey) -> Option<Key> {
+    match key {
+        MediaKey::VolumeUp => Some(Key::VolumeUp),
+        MediaKey::VolumeDown => Some(Key::VolumeDown),
+        MediaKey::VolumeMute => Some(Key::VolumeMute),
+        MediaKey::PlayPause => Some(Key::MediaPlayPause),
+        MediaKey::Next => Some(Key::MediaNextTrack),
+        MediaKey::Previous => Some(Key::MediaPrevTrack),
+        #[cfg(not(target_os = "macos"))]
+        MediaKey::Stop => Some(Key::MediaStop),
+        #[cfg(target_os = "macos")]
+        MediaKey::Stop => None,
+    }
+}
+
+fn apply_media_key(keyboard: &mut impl Keyboard, key: MediaKey) -> InputResult<()> {
+    match media_key(key) {
+        Some(key) => keyboard.key(key, Direction::Click),
+        None => Ok(()),
+    }
 }
 
 fn modifier_key(modifier: ShortcutModifier) -> Key {
@@ -197,8 +225,38 @@ fn scroll(mouse: &mut Enigo, remainder: &mut ScrollRemainder, dx: f64, dy: f64) 
 mod tests {
     use enigo::{Direction, InputError, InputResult, Key, Keyboard};
 
-    use super::{apply_keyboard_key, apply_keyboard_shortcut, apply_keyboard_text};
-    use crate::protocol::{KeyboardKey, KeyboardShortcutPayload, ShortcutKey, ShortcutModifier};
+    use super::{
+        apply_keyboard_key, apply_keyboard_shortcut, apply_keyboard_text, apply_media_key,
+    };
+    use crate::protocol::{
+        KeyboardKey, KeyboardShortcutPayload, MediaKey, ShortcutKey, ShortcutModifier,
+    };
+
+    #[test]
+    fn media_keys_click_the_matching_enigo_key() {
+        let mut keyboard = RecordingKeyboard::default();
+        for key in [
+            MediaKey::VolumeUp,
+            MediaKey::VolumeDown,
+            MediaKey::VolumeMute,
+            MediaKey::PlayPause,
+            MediaKey::Next,
+            MediaKey::Previous,
+        ] {
+            apply_media_key(&mut keyboard, key).unwrap();
+        }
+        assert_eq!(
+            keyboard.events,
+            [
+                (Key::VolumeUp, Direction::Click),
+                (Key::VolumeDown, Direction::Click),
+                (Key::VolumeMute, Direction::Click),
+                (Key::MediaPlayPause, Direction::Click),
+                (Key::MediaNextTrack, Direction::Click),
+                (Key::MediaPrevTrack, Direction::Click),
+            ]
+        );
+    }
 
     #[derive(Default)]
     struct RecordingKeyboard {

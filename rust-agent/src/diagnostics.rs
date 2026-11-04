@@ -19,6 +19,7 @@ enum CommandKind {
     KeyboardText,
     KeyboardKey,
     KeyboardShortcut,
+    MediaKey,
 }
 
 impl CommandMetrics {
@@ -51,6 +52,11 @@ impl CommandMetrics {
             },
             MouseCommand::KeyboardShortcut { .. } => Self {
                 kind: CommandKind::KeyboardShortcut,
+                dx: 0.0,
+                dy: 0.0,
+            },
+            MouseCommand::MediaKey { .. } => Self {
+                kind: CommandKind::MediaKey,
                 dx: 0.0,
                 dy: 0.0,
             },
@@ -120,7 +126,7 @@ impl AgentDiagnostics {
                 self.window.scroll_dy += command.dy;
             }
             CommandKind::KeyboardText => self.window.keyboard_texts += 1,
-            CommandKind::KeyboardKey | CommandKind::KeyboardShortcut => {
+            CommandKind::KeyboardKey | CommandKind::KeyboardShortcut | CommandKind::MediaKey => {
                 self.window.keyboard_keys += 1
             }
         }

@@ -1,0 +1,8 @@
+{
+  "name": "volume-keys",
+  "version": "0.1.0",
+  "description": "Forwards the phone hardware volume keys to JS instead of changing the phone volume (Remote Mouse).",
+  "main": "src/index.ts",
+  "license": "MIT",
+  "private": true
+}

@@ -24,6 +24,11 @@ pub enum MouseCommand {
         version: u8,
         payload: KeyboardShortcutPayload,
     },
+    #[serde(rename = "media.key")]
+    MediaKey {
+        version: u8,
+        payload: MediaKeyPayload,
+    },
 }
 
 #[derive(Debug, Deserialize)]
@@ -106,6 +111,26 @@ pub enum ShortcutKey {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MediaKeyPayload {
+    pub key: MediaKey,
+}
+
+/// Media and system-volume keys. Unknown values fail to parse and the command
+/// is ignored (logged) by the server loop.
+#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum MediaKey {
+    VolumeUp,
+    VolumeDown,
+    VolumeMute,
+    PlayPause,
+    Next,
+    Previous,
+    Stop,
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum MouseButton {
     Left,
@@ -142,7 +167,8 @@ pub fn parse_command(json: &str) -> Result<MouseCommand, ProtocolError> {
         | MouseCommand::Scroll { version, .. }
         | MouseCommand::KeyboardText { version, .. }
         | MouseCommand::KeyboardKey { version, .. }
-        | MouseCommand::KeyboardShortcut { version, .. } => *version,
+        | MouseCommand::KeyboardShortcut { version, .. }
+        | MouseCommand::MediaKey { version, .. } => *version,
     };
 
     if version != 1 {
@@ -171,8 +197,46 @@ fn validate_shortcut(payload: &KeyboardShortcutPayload) -> Result<(), ProtocolEr
 #[cfg(test)]
 mod tests {
     use super::{
-        KeyboardKey, MouseCommand, ProtocolError, ShortcutKey, ShortcutModifier, parse_command,
+        KeyboardKey, MediaKey, MouseCommand, ProtocolError, ShortcutKey, ShortcutModifier,
+        parse_command,
     };
+
+    #[test]
+    fn parses_every_media_key() {
+        for (name, expected) in [
+            ("volume_up", MediaKey::VolumeUp),
+            ("volume_down", MediaKey::VolumeDown),
+            ("volume_mute", MediaKey::VolumeMute),
+            ("play_pause", MediaKey::PlayPause),
+            ("next", MediaKey::Next),
+            ("previous", MediaKey::Previous),
+            ("stop", MediaKey::Stop),
+        ] {
+            let json =
+                format!(r#"{{"version":1,"type":"media.key","payload":{{"key":"{name}"}}}}"#);
+            let command = parse_command(&json).unwrap();
+            assert!(
+                matches!(command, MouseCommand::MediaKey { payload, .. } if payload.key == expected),
+                "{name}"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_media_keys() {
+        for json in [
+            r#"{"version":1,"type":"media.key","payload":{"key":"eject"}}"#,
+            r#"{"version":1,"type":"media.key","payload":{"key":"VolumeUp"}}"#,
+            r#"{"version":1,"type":"media.key","payload":{}}"#,
+            r#"{"version":1,"type":"media.key","payload":{"key":"next","extra":true}}"#,
+        ] {
+            assert!(parse_command(json).is_err(), "{json}");
+        }
+        assert!(matches!(
+            parse_command(r#"{"version":2,"type":"media.key","payload":{"key":"next"}}"#),
+            Err(ProtocolError::UnsupportedVersion(2))
+        ));
+    }
 
     #[test]
     fn parses_alt_tab_and_alt_f4_shortcuts() {
