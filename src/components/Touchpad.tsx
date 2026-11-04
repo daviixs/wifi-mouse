@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   surface: {
     alignItems: 'center',
     backgroundColor: COLORS.surface,
-    borderColor: '#E8EDF1',
+    borderColor: COLORS.border,
     borderRadius: RADIUS.large,
     borderWidth: StyleSheet.hairlineWidth,
     flex: 1,

@@ -1,9 +1,10 @@
 import { useCallback, useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ScreenBackground } from '../components/ui/ScreenBackground';
 import { COLORS, RADIUS, SHADOWS, SPACE } from '../theme/tokens';
 import { ConnectionStatus } from '../components/ConnectionStatus';
 import { MouseButton } from '../components/MouseButton';
@@ -16,6 +17,7 @@ import { usePreferencesStore } from '../stores/preferences.store';
 import type { MouseCommand } from '../types/protocol';
 
 export default function TouchpadScreen() {
+  const { teclado } = useLocalSearchParams<{ teclado?: string }>();
   const sendCommand = useConnectionStore((state) => state.sendCommand);
   const disconnect = useConnectionStore((state) => state.disconnect);
   const status = useConnectionStore((state) => state.status);
@@ -37,77 +39,85 @@ export default function TouchpadScreen() {
     [sendCommand],
   );
 
+  const goBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/conectado');
+  };
+
   const leave = () => {
     disconnect();
-    router.replace('/');
+    if (router.canDismiss()) router.dismissTo('/');
+    else router.replace('/');
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <View style={styles.screen}>
-        <View style={styles.header}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Voltar aos dispositivos"
-            onPress={leave}
-            style={styles.backButton}
-          >
-            <ArrowLeft color={COLORS.text} size={18} />
-          </Pressable>
-          <View style={styles.connectionBlock}>
-            <ConnectionStatus />
-          </View>
-          <View style={styles.headerSpacer} />
-        </View>
-
-        {isOffline && (
-          <View accessibilityLiveRegion="polite" style={styles.offlineBanner}>
-            <Text style={styles.offlineTitle}>
-              {status === 'reconnecting' ? 'Conexão perdida' : 'Sem conexão com o computador'}
-            </Text>
-            <Text style={styles.offlineText}>
-              {status === 'reconnecting'
-                ? 'Tentando reconectar… Verifique a rede Wi-Fi e se o agente continua aberto.'
-                : (connectionError ?? 'A conexão foi encerrada.')}
-            </Text>
+    <ScreenBackground>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <View style={styles.screen}>
+          <View style={styles.header}>
             <Pressable
               accessibilityRole="button"
-              onPress={leave}
-              style={({ pressed }) => [styles.offlineButton, pressed && { opacity: 0.7 }]}
+              accessibilityLabel="Voltar para a tela de conexão"
+              onPress={goBack}
+              style={styles.backButton}
             >
-              <Text style={styles.offlineButtonLabel}>Voltar e conectar novamente</Text>
+              <ArrowLeft color={COLORS.text} size={18} />
             </Pressable>
+            <View style={styles.connectionBlock}>
+              <ConnectionStatus />
+            </View>
+            <View style={styles.headerSpacer} />
           </View>
-        )}
 
-        <View style={styles.touchArea}>
-          <Touchpad onCommand={sendCommand} sensitivity={sensitivity} />
-          <SensitivityControl sensitivity={sensitivity} onChange={setSensitivity} />
-          <KeyboardModeControl onCommand={sendCommand} />
-          <ShortcutsControl onCommand={sendCommand} />
-        </View>
+          {isOffline && (
+            <View accessibilityLiveRegion="polite" style={styles.offlineBanner}>
+              <Text style={styles.offlineTitle}>
+                {status === 'reconnecting' ? 'Conexão perdida' : 'Sem conexão com o computador'}
+              </Text>
+              <Text style={styles.offlineText}>
+                {status === 'reconnecting'
+                  ? 'Tentando reconectar… Verifique a rede Wi-Fi e se o agente continua aberto.'
+                  : (connectionError ?? 'A conexão foi encerrada.')}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={leave}
+                style={({ pressed }) => [styles.offlineButton, pressed && { opacity: 0.7 }]}
+              >
+                <Text style={styles.offlineButtonLabel}>Voltar e conectar novamente</Text>
+              </Pressable>
+            </View>
+          )}
 
-        <View style={styles.controls}>
-          <View style={styles.controlHint}>
-            <Text style={styles.controlEyebrow}>BOTÕES DO MOUSE</Text>
-            <Text style={styles.controlDescription}>Pressione para clicar</Text>
+          <View style={styles.touchArea}>
+            <Touchpad onCommand={sendCommand} sensitivity={sensitivity} />
+            <SensitivityControl sensitivity={sensitivity} onChange={setSensitivity} />
+            <KeyboardModeControl initialOpen={teclado === '1'} onCommand={sendCommand} />
+            <ShortcutsControl onCommand={sendCommand} />
           </View>
-          <View style={styles.buttonRow}>
-            <MouseButton label="Clique esquerdo" side="left" onPress={() => sendClick('left')} />
-            <View style={styles.buttonDivider} />
-            <MouseButton label="Clique direito" side="right" onPress={() => sendClick('right')} />
+
+          <View style={styles.controls}>
+            <View style={styles.controlHint}>
+              <Text style={styles.controlEyebrow}>BOTÕES DO MOUSE</Text>
+              <Text style={styles.controlDescription}>Pressione para clicar</Text>
+            </View>
+            <View style={styles.buttonRow}>
+              <MouseButton label="Clique esquerdo" side="left" onPress={() => sendClick('left')} />
+              <View style={styles.buttonDivider} />
+              <MouseButton label="Clique direito" side="right" onPress={() => sendClick('right')} />
+            </View>
+            <Text style={styles.gestureHint}>
+              TOQUE PARA CLICAR <Text style={styles.hintDot}>·</Text> SEGURE PARA CLIQUE DIREITO
+            </Text>
           </View>
-          <Text style={styles.gestureHint}>
-            TOQUE PARA CLICAR <Text style={styles.hintDot}>·</Text> SEGURE PARA CLIQUE DIREITO
-          </Text>
         </View>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { backgroundColor: COLORS.background, flex: 1 },
+  safeArea: { flex: 1 },
   screen: {
     flex: 1,
     paddingBottom: SPACE.sm,
@@ -117,7 +127,7 @@ const styles = StyleSheet.create({
   header: { alignItems: 'center', flexDirection: 'row', gap: SPACE.sm, minHeight: 52 },
   backButton: {
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.surfaceGlass,
     borderColor: COLORS.border,
     borderRadius: RADIUS.medium,
     borderWidth: 1,
@@ -129,7 +139,7 @@ const styles = StyleSheet.create({
   connectionBlock: { alignItems: 'center', flex: 1, justifyContent: 'center' },
   headerSpacer: { height: 42, width: 42 },
   offlineBanner: {
-    backgroundColor: '#FDECEC',
+    backgroundColor: COLORS.dangerSurface,
     borderColor: COLORS.danger,
     borderRadius: RADIUS.medium,
     borderWidth: StyleSheet.hairlineWidth,
@@ -140,7 +150,7 @@ const styles = StyleSheet.create({
   offlineTitle: { color: COLORS.danger, fontSize: 13, fontWeight: '800' },
   offlineText: { color: COLORS.text, fontSize: 12, lineHeight: 17 },
   offlineButton: { alignSelf: 'flex-start', marginTop: SPACE.xxs, paddingVertical: SPACE.xxs },
-  offlineButtonLabel: { color: COLORS.primary, fontSize: 13, fontWeight: '800' },
+  offlineButtonLabel: { color: COLORS.accent, fontSize: 13, fontWeight: '800' },
   touchArea: { flex: 1, paddingBottom: SPACE.xl, paddingTop: SPACE.md, position: 'relative' },
   controls: { gap: SPACE.sm, paddingBottom: SPACE.xxs },
   controlHint: { alignItems: 'center', gap: SPACE.xxs, marginBottom: SPACE.xxs },
