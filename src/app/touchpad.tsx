@@ -18,6 +18,9 @@ export default function TouchpadScreen() {
   const deviceName = useConnectionStore((state) => state.deviceName);
   const sendCommand = useConnectionStore((state) => state.sendCommand);
   const disconnect = useConnectionStore((state) => state.disconnect);
+  const status = useConnectionStore((state) => state.status);
+  const connectionError = useConnectionStore((state) => state.error);
+  const isOffline = status === 'reconnecting' || status === 'error' || status === 'disconnected';
   const sensitivity = usePreferencesStore((state) => state.sensitivity);
   const setSensitivity = usePreferencesStore((state) => state.setSensitivity);
   const hydratePreferences = usePreferencesStore((state) => state.hydrate);
@@ -58,6 +61,26 @@ export default function TouchpadScreen() {
             </Text>
           </View>
         </View>
+
+        {isOffline && (
+          <View accessibilityLiveRegion="polite" style={styles.offlineBanner}>
+            <Text style={styles.offlineTitle}>
+              {status === 'reconnecting' ? 'Conexão perdida' : 'Sem conexão com o computador'}
+            </Text>
+            <Text style={styles.offlineText}>
+              {status === 'reconnecting'
+                ? 'Tentando reconectar… Verifique a rede Wi-Fi e se o agente continua aberto.'
+                : (connectionError ?? 'A conexão foi encerrada.')}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={leave}
+              style={({ pressed }) => [styles.offlineButton, pressed && { opacity: 0.7 }]}
+            >
+              <Text style={styles.offlineButtonLabel}>Voltar e conectar novamente</Text>
+            </Pressable>
+          </View>
+        )}
 
         <View style={styles.touchArea}>
           <Touchpad onCommand={sendCommand} sensitivity={sensitivity} />
@@ -106,6 +129,19 @@ const styles = StyleSheet.create({
   },
   connectionBlock: { flex: 1, gap: SPACE.xxs },
   deviceName: { color: COLORS.muted, fontSize: 11, maxWidth: 210 },
+  offlineBanner: {
+    backgroundColor: '#FDECEC',
+    borderColor: COLORS.danger,
+    borderRadius: RADIUS.medium,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: SPACE.xxs,
+    marginTop: SPACE.xs,
+    padding: SPACE.sm,
+  },
+  offlineTitle: { color: COLORS.danger, fontSize: 13, fontWeight: '800' },
+  offlineText: { color: COLORS.text, fontSize: 12, lineHeight: 17 },
+  offlineButton: { alignSelf: 'flex-start', marginTop: SPACE.xxs, paddingVertical: SPACE.xxs },
+  offlineButtonLabel: { color: COLORS.primary, fontSize: 13, fontWeight: '800' },
   touchArea: { flex: 1, paddingBottom: SPACE.xl, paddingTop: SPACE.md, position: 'relative' },
   controls: { gap: SPACE.sm, paddingBottom: SPACE.xxs },
   controlHint: { alignItems: 'center', gap: SPACE.xxs, marginBottom: SPACE.xxs },

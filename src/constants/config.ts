@@ -1,6 +1,7 @@
 export const APP_CONFIG = {
   appName: 'Remote Mouse',
   agentPort: 8765,
+  connectTimeoutMs: 6_000,
   reconnect: {
     initialDelayMs: 800,
     maxDelayMs: 12_000,
