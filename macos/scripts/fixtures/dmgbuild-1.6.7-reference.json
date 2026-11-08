@@ -1,0 +1,7 @@
+{
+  "upstream": "https://pypi.org/project/dmgbuild/1.6.7/",
+  "wheel_sha256": "37ee5771c377beb3203d9164aae8046ffed8531c06edf9227f5788b3c599b1bf",
+  "core_sha256": "433994a5a723ab9867c76d19c1b73f3fed7c88ceafe0e79ee80d9e24cf39b14b",
+  "fixture_sha256": "7dda2c1e80249635271c070cf5b03a499fa665e893139cc96a9bca8c4545a4e4",
+  "identity": "explicit synthetic Alias identity; native commands mocked; writer is unmodified upstream"
+}

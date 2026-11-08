@@ -89,3 +89,7 @@ npx expo-doctor
   - **Android**: módulo Expo local `modules/volume-keys` registra um `ReactActivityHandler` (`onKeyDown/onKeyUp`), consome `KEYCODE_VOLUME_UP/DOWN` e envia ao computador. O volume do celular não muda e o HUD não aparece. Segurar o botão repete. Não funciona com a tela bloqueada nem com o app em segundo plano.
   - **iOS (melhor esforço)**: não há API pública para interceptar os botões. O módulo observa `AVAudioSession.outputVolume`, envia a direção e restaura o volume com um `MPVolumeView` oculto (que também esconde o HUD). Em 0% ou 100% o volume é ajustado para 50% ao ativar. Pode perder pressões muito rápidas, e a App Store pode questionar o uso.
   - Web/Expo Go: indisponível (no-op).
+
+## Aplicativo macOS (barra de menus)
+
+O shell nativo SwiftUI e os scripts de `.app`/DMG ficam em [`macos/`](macos/README.md). Reutiliza o agente Rust, com iniciar/parar, status real, IPs e orientação de permissões. Requer macOS 13+ para compilar e executar.

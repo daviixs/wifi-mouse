@@ -1,3 +1,4 @@
+mod desktop;
 mod diagnostics;
 mod discovery;
 mod input;
@@ -28,11 +29,15 @@ const MAX_COMMAND_BYTES: usize = 1024;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn Error>> {
+    if desktop::check_permission_mode() {
+        return Ok(());
+    }
     let bind_address = env::var("REMOTE_MOUSE_BIND")
         .unwrap_or_else(|_| DEFAULT_BIND_ADDRESS.to_owned())
         .parse::<SocketAddr>()?;
 
     let listener = TcpListener::bind(bind_address).await?;
+    desktop::permission();
     let mouse = Enigo::new(&Settings::default())?;
     let mut mouse = input::MouseController::new(mouse);
 
@@ -53,8 +58,21 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
     println!("Pressione Ctrl+C para encerrar.");
 
-    let mut shutdown: Pin<Box<dyn Future<Output = ()>>> = Box::pin(async {
-        let _ = signal::ctrl_c().await;
+    // Only the packaged desktop app opts into stdin control and structured events.
+    // EOF shuts down our own helper if the parent exits or crashes.
+    desktop::ready(
+        bind_address.port(),
+        lan_ipv4_addresses(),
+        advertisement.is_some(),
+    );
+    let stopping = std::rc::Rc::new(std::cell::Cell::new(false));
+    let shutdown_stopping = std::rc::Rc::clone(&stopping);
+    let mut shutdown: Pin<Box<dyn Future<Output = ()>>> = Box::pin(async move {
+        tokio::select! {
+            _ = signal::ctrl_c() => {},
+            _ = desktop::control() => {},
+        }
+        shutdown_stopping.set(true);
     });
 
     loop {
@@ -76,6 +94,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     eprintln!("Conexão {peer} encerrada com erro: {error}");
                 }
                 println!("Conexão {peer} encerrada.");
+                // The same pinned shutdown future also runs inside the connection.
+                // Do not poll it again once it has completed there.
+                if stopping.get() { break; }
             }
         }
     }
@@ -147,7 +168,12 @@ async fn serve_connection(
     let mut config = WebSocketConfig::default();
     config.max_message_size = Some(MAX_COMMAND_BYTES);
     config.max_frame_size = Some(MAX_COMMAND_BYTES);
-    let mut socket = accept_async_with_config(stream, Some(config)).await?;
+    let mut socket = tokio::select! {
+        _ = shutdown.as_mut() => return Ok(()),
+        socket = accept_async_with_config(stream, Some(config)) => socket?,
+    };
+    desktop::emit(serde_json::json!({"event": "client", "connected": true}));
+    let _client_status = desktop::ClientStatus;
     let mut diagnostics = diagnostics::AgentDiagnostics::default();
 
     loop {

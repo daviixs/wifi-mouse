@@ -1,0 +1,6 @@
+dist/
+RemoteMouse/.build/
+RemoteMouse/.swiftpm/
+.DS_Store
+__pycache__/
+*.pyc
