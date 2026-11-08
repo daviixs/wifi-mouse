@@ -121,23 +121,32 @@ Não há evidência suficiente para atribuir os 13 pontos a título, origem de s
 
 São escritos registros reais `.DS_Store`: `bwsp` para a janela, `icvp` para visualização/fundo, `icvl=icnv`, `vSrn=1` e `Iloc` para os centros dos ícones. O contrato agora é **640×480 nominal nos metadados**, via `WindowBounds={{120,120},{640,480}}`, como no dmgbuild — não o retângulo de bounds da API AppleScript. Não se soma uma decoração de 22 pontos. Os `Iloc` mantêm precisamente os pontos aprovados; scroll e grid offset ficam em zero, grid spacing 80 (dentro do limite documentado), `arrangeBy=none`, barras/sidebar ocultos.
 
-O Alias do fundo é criado **nativamente** no Mac a partir do arquivo dentro da imagem montada, com identidade real de volume, datas e CNIDs; não é um blob inventado nem um `.DS_Store` de outro disco. O destino deve ser relativo à raiz desse volume, exatamente `.background/background.png`. Retiram-se apenas os campos opcionais de dica de mountpoint/imagem do host; a identidade real e o caminho relativo permanecem. Não depende do workspace antigo.
+O Alias do fundo é criado **nativamente** no Mac a partir do arquivo dentro da imagem montada, com identidade real de volume, datas e CNIDs; não é um blob inventado nem um `.DS_Store` de outro disco. O destino deve ser relativo à raiz desse volume, exatamente `.background/background.png`. O registro é preservado **integralmente**, como no dmgbuild, inclusive a dica POSIX do mountpoint. A dica do volume é diferente do destino do arquivo: o destino continua relativo ao volume. O build anterior apagava essa dica; isso era uma divergência indevida do upstream. A nova verificação exige que o macOS resolva o Alias na montagem atual, inclusive depois de o mountpoint gravável antigo ter desaparecido.
 
 Depois de fechar/fsync do arquivo, ele é lido e validado; a imagem é desmontada, convertida a **UDZO**, montada somente leitura em outro mountpoint privado e validada de novo. A validação:
 
 - exige todas as opções e coordenadas `Iloc` exatas, sem tolerância (inclusive um ponto ou +13 é rejeitado);
 - lê e interpreta o Alias; exige caminho relativo, identidade do volume e identidade do arquivo iguais às obtidas nativamente do fundo na montagem atual;
+- converte o registro Alias em Bookmark e o resolve pelo **CoreFoundation do macOS**, sem UI e sem montar volumes; exige `samefile` com o fundo da montagem atual, não apenas um parser aceitando seus próprios bytes;
 - confere fundo byte a byte contra o PNG aprovado e link `/Applications`;
 - exige o mesmo SHA-256 de `.DS_Store` antes e depois da conversão/remontagem;
 - continua verificando assinatura do app copiado e `hdiutil verify`, antes de publicar sem sobrescrever.
 
-Não abre Finder, não lê seu cache, não altera TCC ou preferências globais e não precisa de permissão de Automação/sessão gráfica. O build precisa de **macOS, Python 3 e ferramentas hdiutil/ditto/codesign**; `Alias.for_file` é uma API nativa via a biblioteca. Se falhar, o erro identifica `metadata[write|verify]`, mountpoint, valores reais e identidade/caminho do Alias; não mascara a falha com um Boolean genérico. Falha de desmontagem mantém o erro original e preserva o workspace; discos alheios não são desmontados.
+Não abre Finder, não lê seu cache, não altera TCC ou preferências globais e não precisa de permissão de Automação/sessão gráfica. O build precisa de **macOS, Python 3 e ferramentas hdiutil/ditto/codesign**; `Alias.for_file` é uma API nativa via a biblioteca. A resolução nativa roda em processo separado com limite de 20s. Se falhar, o erro identifica `metadata[write|verify]`, mountpoint, CFError/caminho resolvido, valores reais, identidade e dica POSIX do Alias; não mascara a falha com um Boolean genérico. Falha de desmontagem mantém o erro original e preserva o workspace; discos alheios não são desmontados.
 
 **Limite:** a validação é dos metadados efetivos na imagem somente leitura, não um teste de renderização do Finder. O layout segue uma implementação pública usada em produção; a criação nativa do Alias, o DMG, a dimensão visível de conteúdo/chrome e a aparência ainda precisam de validação no Mac. Nada disso foi executado na box Linux. Finder continua redimensionável e pode adaptar a janela à tela do usuário.
 
+### Fundo branco e itens ocultos: correção após o primeiro DMG
+
+A arte PNG foi inspecionada: contém ornamentos, seta e texto. No build anterior os bytes chegavam íntegros à imagem, mas isso não provava que o Finder resolvesse seu Alias. O defeito verificável no código era a **remoção de campos do Alias nativo que o dmgbuild conserva**; o efeito exclusivo disso na renderização ainda depende do teste Mac. Foi removida a sanitização e acrescentada a resolução nativa real acima. Não foram inventadas chaves `backgroundImageAliasData`, BKGD/PctB ou flags de janela: a fixture binária gerada pelo writer original dmgbuild 1.6.7 confirma `icvp.backgroundImageAlias`, `backgroundType=2`, `icvl` e `ShowStatusBar=false`. Ver `scripts/fixtures/README.md`.
+
+Pastas `.background` e `.fseventsd` esmaecidas são compatíveis com **mostrar itens ocultos** ligado no Finder. Para a visualização normal, use **⌘⇧. (Command+Shift+ponto)** na janela do Finder, se quiser desligar essa preferência. O prefixo ponto já oculta essas pastas no modo normal; flags adicionais não anulam a opção de mostrar ocultos. O build não altera defaults globais e **não apaga `.fseventsd`**, que é do sistema.
+
+A flag de barra de status é igual à usada pelo upstream e não foi alterada às cegas. Antes de testar, ejete **manualmente no Finder** as cópias antigas deste DMG que você abriu, feche suas janelas e só então abra a imagem nova. Montagens simultâneas com o mesmo nome/cache e preferências da janela podem confundir o teste; são hipóteses, não causas confirmadas. Se a barra continuar visível, registre isso no teste visual; o arquivo sozinho não comprova o estado da UI.
+
 ### Reconstruir apenas o DMG
 
-O `.app` existente não é recompilado nem modificado. Na raiz do repositório:
+O `.app` existente não é recompilado nem modificado. **Ejete antes a imagem antiga pelo Finder** (não discos alheios). Arquive o DMG existente em vez de apagá-lo. Na raiz do repositório:
 
 ```bash
 ARCH=arm64  # Intel: x86_64
@@ -155,11 +164,12 @@ Testes portáveis:
 
 ```bash
 python3 macos/scripts/test_dmg_metadata.py
+python3 macos/scripts/test_alias_resolution.py
 python3 macos/scripts/test_dmg_layout.py
 bash -n macos/scripts/build-dmg.sh
 ```
 
-Os testes de metadados escrevem/reabrem `.DS_Store` e Alias **binários reais**, mas usam identidade de filesystem de fixture declarada no Linux. Só a orquestração hdiutil/codesign tem mocks. Checklist no Mac: gerar, ejetar, abrir a imagem final em outra pasta, conferir imagem/legendas/ícones alinhados, arrastar para Applications e confirmar ausência de volumes temporários. A renderização não é certificada por um teste de bytes.
+Os testes de metadados escrevem/reabrem `.DS_Store` e Alias **binários reais**, mas usam identidade de filesystem de fixture declarada no Linux. A fixture upstream usa seu writer original com processos/identidade nativa simulados; os testes CoreFoundation também têm stubs e **não** são execução nativa. A orquestração hdiutil/codesign tem mocks. Checklist no Mac: gerar, ejetar, abrir a imagem final em outra pasta, conferir imagem/legendas/ícones alinhados, arrastar para Applications e confirmar ausência de volumes temporários. A renderização não é certificada por um teste de bytes.
 
 Referências: [settings/window_rect e limite grid_spacing](https://dmgbuild.readthedocs.io/en/latest/settings.html), [dmgbuild core](https://github.com/dmgbuild/dmgbuild/blob/main/src/dmgbuild/core.py), [formato Iloc — centro do ícone, sem legenda](https://metacpan.org/dist/Mac-Finder-DSStore/view/DSStoreFormat.pod), [mac_alias — caminho relativo ao volume](https://github.com/dmgbuild/mac_alias/blob/master/src/mac_alias/alias.py).
 

@@ -10,6 +10,8 @@ from pathlib import Path
 import sys
 import unicodedata
 
+from alias_resolution import resolve_alias
+
 VENDOR = Path(__file__).with_name("vendor")
 WHEELS = {
     "ds_store-1.3.1-py3-none-any.whl": "fbacbb0bd5193ab3e66e5a47fff63619f15e374ffbec8ae29744251a6c8f05b5",
@@ -87,16 +89,18 @@ def native_alias(path, alias_factory):
         raise MetadataError(f"Identidade nativa do fundo indisponível em {path}: {type(error).__name__}: {error}") from error
 
 
-def write_layout(root, alias_factory=None):
+def write_layout(root, alias_factory=None, alias_resolver=None):
     root = Path(root)
-    alias = native_alias(background_file(root), alias_factory or Alias.for_file)
+    try:
+        # Match upstream exactly: serialize Alias.for_file output without editing
+        # optional resolver fields or rebuilding its bytes.
+        alias_bytes = (alias_factory or Alias.for_file)(str(background_file(root))).to_bytes()
+        alias = Alias.from_bytes(alias_bytes)
+    except Exception as error:
+        raise MetadataError(f"Identidade nativa do fundo indisponível: {type(error).__name__}: {error}") from error
     if text(alias.target.posix_path) not in (RELATIVE_BACKGROUND, "/" + RELATIVE_BACKGROUND):
         raise MetadataError(f"Alias nativo não é relativo ao volume: {identity(alias)}")
-    # The volume's real identity + CNIDs and volume-relative target are retained.
-    # An optional obsolete host mountpoint hint is not a background dependency.
-    alias.volume.posix_path = None
-    alias.volume.disk_image_alias = None
-    options = dict(ICON_VIEW, backgroundImageAlias=alias.to_bytes())
+    options = dict(ICON_VIEW, backgroundImageAlias=alias_bytes)
     path = root / ".DS_Store"
     if path.is_symlink():
         raise MetadataError(f".DS_Store não pode ser symlink: {path}")
@@ -109,10 +113,10 @@ def write_layout(root, alias_factory=None):
             store[name]["Iloc"] = position
     with path.open("r+b") as stream:
         os.fsync(stream.fileno())
-    return verify_layout(root, alias_factory=alias_factory)
+    return verify_layout(root, alias_factory=alias_factory, alias_resolver=alias_resolver)
 
 
-def verify_layout(root, alias_factory=None):
+def verify_layout(root, alias_factory=None, alias_resolver=None):
     root = Path(root)
     background = background_file(root)
     path = root / ".DS_Store"
@@ -148,6 +152,7 @@ def verify_layout(root, alias_factory=None):
         if actual != expected:
             failures.append(f"{name}: atual={actual!r}, esperado={expected!r}")
     alias_report = None
+    resolution = None
     try:
         alias = Alias.from_bytes(options["backgroundImageAlias"])
         alias_report = identity(alias)
@@ -156,14 +161,21 @@ def verify_layout(root, alias_factory=None):
             failures.append(f"background Alias atual={alias_report}, arquivo real no volume={expected}")
         if text(alias.target.posix_path) not in (RELATIVE_BACKGROUND, "/" + RELATIVE_BACKGROUND):
             failures.append(f"background fora da raiz do volume: {alias_report}")
-        if alias.volume.posix_path is not None or alias.volume.disk_image_alias is not None:
-            failures.append("background contém referência opcional ao mountpoint/imagem do host")
+        hint = alias.volume.posix_path
+        if not hint or not text(hint).startswith("/"):
+            failures.append("background Alias perdeu a dica POSIX de volume gerada pelo upstream")
+        if alias_report == expected and text(alias.target.posix_path) in (RELATIVE_BACKGROUND, "/" + RELATIVE_BACKGROUND) and hint:
+            resolution = (alias_resolver or resolve_alias)(options["backgroundImageAlias"], background)
+            if not os.path.samefile(resolution["path"], background):
+                failures.append(f"background resolveu fora da montagem atual: {resolution}, esperado={background}")
     except Exception as error:
         failures.append(f"background Alias inválido/identidade nativa indisponível: {type(error).__name__}: {error}")
     summary = {
         "positions_Iloc": positions, "window": window,
         "icon_view": {key: value for key, value in (options or {}).items() if key != "backgroundImageAlias"} if isinstance(options, dict) else options,
         "background_alias": alias_report,
+        "background_volume_hint": text(alias.volume.posix_path) if alias_report is not None and alias.volume.posix_path else None,
+        "background_native_resolution": resolution,
         "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
     }
     if failures:

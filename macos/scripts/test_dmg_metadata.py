@@ -4,6 +4,7 @@ not an Apple runtime, Finder or hdiutil simulation masquerading as integration.
 """
 import datetime
 import hashlib
+import json
 from pathlib import Path
 import shutil
 import struct
@@ -26,6 +27,11 @@ def fixture_alias(path):
     )
 
 
+def fixture_resolution(data, expected_path):
+    # Explicit resolver fixture for Linux codec tests; not native resolution.
+    return {"path": str(expected_path), "stale": False}
+
+
 class MetadataTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -33,14 +39,14 @@ class MetadataTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         (self.root / ".background").mkdir()
         shutil.copyfile(BACKGROUND, self.root / metadata.RELATIVE_BACKGROUND)
-        self.initial = metadata.write_layout(self.root, alias_factory=fixture_alias)
+        self.initial = metadata.write_layout(self.root, alias_factory=fixture_alias, alias_resolver=fixture_resolution)
 
     def mutate(self, callback):
         with metadata.DSStore.open(str(self.root / ".DS_Store"), "r+") as store:
             callback(store)
 
     def verify(self):
-        return metadata.verify_layout(self.root, alias_factory=fixture_alias)
+        return metadata.verify_layout(self.root, alias_factory=fixture_alias, alias_resolver=fixture_resolution)
 
     def test_real_binary_roundtrip_and_content_geometry(self):
         data = (self.root / ".DS_Store").read_bytes()
@@ -57,8 +63,51 @@ class MetadataTests(unittest.TestCase):
         with metadata.DSStore.open(str(self.root / ".DS_Store"), "r") as store:
             self.assertEqual(store["."]["icvl"], (b"type", b"icnv"))
             alias = metadata.Alias.from_bytes(store["."]["icvp"]["backgroundImageAlias"])
-            self.assertIsNone(alias.volume.posix_path)
+            self.assertEqual(alias.volume.posix_path, str(self.root))
             self.assertIsNone(alias.volume.disk_image_alias)
+
+    def test_unmodified_upstream_fixture_confirms_codes_keys_and_alias_volume_hint(self):
+        fixtures = Path(__file__).with_name("fixtures")
+        path = fixtures / "dmgbuild-1.6.7-reference.dsstore"
+        manifest = json.loads((fixtures / "dmgbuild-1.6.7-reference.json").read_text())
+        self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), manifest["fixture_sha256"])
+        with metadata.DSStore.open(str(path), "r") as upstream, metadata.DSStore.open(str(self.root / ".DS_Store"), "r") as actual:
+            self.assertEqual({entry.code for entry in upstream if entry.filename == "."}, {b"vSrn", b"bwsp", b"icvp", b"icvl"})
+            self.assertEqual(actual["."]["bwsp"], upstream["."]["bwsp"])
+            self.assertEqual(actual["."]["icvl"], upstream["."]["icvl"])
+            reference_options = upstream["."]["icvp"]
+            own_options = actual["."]["icvp"]
+            self.assertIn("backgroundImageAlias", reference_options)
+            self.assertNotIn("backgroundImageAliasData", reference_options)
+            self.assertEqual({k: v for k, v in own_options.items() if k != "backgroundImageAlias"},
+                             {k: v for k, v in reference_options.items() if k != "backgroundImageAlias"})
+            alias = metadata.Alias.from_bytes(reference_options["backgroundImageAlias"])
+            self.assertEqual(alias.volume.posix_path, "/Volumes/Reference")
+            self.assertEqual(alias.target.posix_path, "/.background.png")
+
+    def test_factory_alias_bytes_are_preserved_without_sanitizing_resolver_fields(self):
+        alias = fixture_alias(self.root / metadata.RELATIVE_BACKGROUND)
+        alias.extra = [(77, b"preserve-native-extra")]
+        expected = alias.to_bytes()
+        metadata.write_layout(self.root, alias_factory=lambda path: metadata.Alias.from_bytes(expected), alias_resolver=fixture_resolution)
+        with metadata.DSStore.open(str(self.root / ".DS_Store"), "r") as store:
+            self.assertEqual(store["."]["icvp"]["backgroundImageAlias"], expected)
+
+    def test_native_resolution_must_reach_this_mount_not_an_identical_other_volume(self):
+        with tempfile.TemporaryDirectory() as directory:
+            other = Path(directory) / "background.png"
+            other.write_bytes(BACKGROUND.read_bytes())
+            with self.assertRaisesRegex(metadata.MetadataError, "fora da montagem atual"):
+                metadata.verify_layout(self.root, alias_factory=fixture_alias,
+                                       alias_resolver=lambda data, expected: {"path": str(other), "stale": False})
+
+    def test_system_hidden_folder_is_not_deleted_or_modified(self):
+        system = self.root / ".fseventsd"
+        system.mkdir()
+        marker = system / "keep"
+        marker.write_bytes(b"system data, not ours to delete")
+        metadata.write_layout(self.root, alias_factory=fixture_alias, alias_resolver=fixture_resolution)
+        self.assertEqual(marker.read_bytes(), b"system data, not ours to delete")
 
     def test_one_point_and_observed_thirteen_point_shifts_are_rejected(self):
         for offset in (1, 13, -1):
@@ -95,10 +144,10 @@ class MetadataTests(unittest.TestCase):
                     self.mutate(change)
                     with self.assertRaisesRegex(metadata.MetadataError, key):
                         self.verify()
-                    metadata.write_layout(self.root, alias_factory=fixture_alias)
+                    metadata.write_layout(self.root, alias_factory=fixture_alias, alias_resolver=fixture_resolution)
 
     def test_background_identity_relative_path_and_host_hint_are_verified(self):
-        for kind in ("file-id", "volume", "path", "host-hint"):
+        for kind in ("file-id", "volume", "path", "missing-hint"):
             with self.subTest(kind=kind):
                 def change(store):
                     options = store["."]["icvp"]
@@ -106,13 +155,13 @@ class MetadataTests(unittest.TestCase):
                     if kind == "file-id": alias.target.cnid = 999
                     if kind == "volume": alias.volume.name = "Wrong Volume"
                     if kind == "path": alias.target.posix_path = "/Users/example/background.png"
-                    if kind == "host-hint": alias.volume.posix_path = "/tmp/obsolete-mount"
+                    if kind == "missing-hint": alias.volume.posix_path = None
                     options["backgroundImageAlias"] = alias.to_bytes()
                     store["."]["icvp"] = options
                 self.mutate(change)
                 with self.assertRaisesRegex(metadata.MetadataError, "background"):
                     self.verify()
-                metadata.write_layout(self.root, alias_factory=fixture_alias)
+                metadata.write_layout(self.root, alias_factory=fixture_alias, alias_resolver=fixture_resolution)
 
     def test_read_only_verification_does_not_write_metadata(self):
         store = self.root / ".DS_Store"
@@ -126,7 +175,7 @@ class MetadataTests(unittest.TestCase):
             relocated = Path(directory)
             shutil.copytree(self.root, relocated / "new-mount")
             (self.root / metadata.RELATIVE_BACKGROUND).unlink()
-            report = metadata.verify_layout(relocated / "new-mount", alias_factory=fixture_alias)
+            report = metadata.verify_layout(relocated / "new-mount", alias_factory=fixture_alias, alias_resolver=fixture_resolution)
             self.assertEqual(report["sha256"], self.initial["sha256"])
             # The identity provider here is explicitly a fixture, not the macOS
             # Alias resolver. Real conversion/mount identity needs macOS testing.

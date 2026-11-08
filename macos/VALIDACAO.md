@@ -1,5 +1,21 @@
 # Estado da validação desta entrega
 
+## Fundo: Alias upstream intacto e resolução nativa (base 4bd2182)
+
+O DMG anterior foi produzido no Mac, com arquivo de layout e PNG íntegros, mas a UI ficou branca. O log/captura não demonstra a causa exclusiva da renderização. A arte PNG desta box foi inspecionada e contém os ornamentos/texto aprovados.
+
+**Defeito verificado no código:** o writer removia `volume.posix_path` e `disk_image_alias` do Alias nativo, ao contrário do dmgbuild, e os testes anteriores exigiam essa remoção. Isso não era equivalência integral com o upstream. Corrigido para gravar os bytes originais de `Alias.for_file(...).to_bytes()` sem sanitização. Destino relativo do arquivo é preservado; a dica de mountpoint do volume não é o destino do fundo.
+
+**Formato agora conferido contra origem independente:** fixture binária produzida pelo writer sem alterações do wheel oficial dmgbuild 1.6.7, com hashes/proveniência e gerador reproduzível. Apenas comandos Apple e identidade nativa têm fixtures; não é uma captura de Finder. Confirma códigos bwsp/icvp/icvl/vSrn, `backgroundImageAlias` (não AliasData), backgroundType=2 e ShowStatusBar=false. Não se adicionaram códigos legados sem evidência.
+
+**Gate novo:** além de identidade/PNG/sha, o build pede ao CoreFoundation resolver o registro Alias em cada montagem, sem UI/montagem de outros volumes, com processo separado e timeout 20s. `samefile` deve identificar o fundo da montagem atual. Alias parseável mas resolvendo para outra cópia é rejeitado. Não se considera leitura dos próprios bytes prova de resolução/renderização.
+
+Ocultos: orientação ⌘⇧. opcional do usuário. Nenhum defaults global ou diretório de sistema é modificado/apagado. Statusbar usa a mesma chave upstream; não se promete corrigir UI/cache apenas pelos metadados. Orientação de teste exige ejetar manualmente a imagem antiga e arquivar o DMG existente antes da reconstrução.
+
+Executado Linux: **15 testes metadata** (incluindo referência upstream e preservação de bytes), **4 testes do fluxo CoreFoundation com stubs** (não ABI nativa), **10 testes de orquestração com mocks**, **12 resources**, checker **45×3**, sintaxe Python/shell e diff. **Não executado:** resolução CoreFoundation real, Finder ou novo DMG no Mac; a correção de formato é comprovada, o resultado visual continua pendente de uma verificação nativa. App/Rust/arte não alterados. Também passaram lint, typecheck e os **39 testes motion/services**.
+
+As seções seguintes são históricas; a remoção das dicas de Alias nelas descrita foi corrigida acima.
+
 ## Layout binário: substituição pontual do estágio Finder (base df98a7d)
 
 **Evidência real recebida:** bounds invariáveis, y240 após set e y253 para ambos os ícones após reopen; seletores de pasta/janela concordam. Assim, contexto de seletor não explicou a falha. `background=0` ocorreu antes de reopen, mas o código anterior escondia exceção de leitura/coerção e comparação negativa de alias no mesmo valor. Causa exata desse zero e origem nativa dos 13 pontos **não demonstradas**; não se atribui a título/scroll/label sem prova.
