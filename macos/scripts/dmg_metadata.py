@@ -116,6 +116,30 @@ def write_layout(root, alias_factory=None, alias_resolver=None):
     return verify_layout(root, alias_factory=alias_factory, alias_resolver=alias_resolver)
 
 
+def file_identity(path):
+    """Exact targeted stat only; no directory scanning or mount-name inference."""
+    path = Path(path)
+    report = {"path": str(path)}
+    try:
+        report["canonical_path"] = str(path.resolve())
+    except (OSError, RuntimeError) as error:
+        report["canonical_error"] = f"{type(error).__name__}: {error}"
+    try:
+        info = path.stat()
+        report.update(exists=True, device=info.st_dev, inode=info.st_ino)
+    except OSError as error:
+        report.update(exists=False, error=f"{type(error).__name__}: {error}")
+    return report
+
+
+def compare_resolved_file(resolution, expected):
+    actual_info = file_identity(resolution["path"])
+    expected_info = file_identity(expected)
+    same = (actual_info["exists"] and expected_info["exists"]
+            and (actual_info["device"], actual_info["inode"]) == (expected_info["device"], expected_info["inode"]))
+    return {"resolved": actual_info, "expected": expected_info, "same_object": same}
+
+
 def verify_layout(root, alias_factory=None, alias_resolver=None):
     root = Path(root)
     background = background_file(root)
@@ -153,6 +177,7 @@ def verify_layout(root, alias_factory=None, alias_resolver=None):
             failures.append(f"{name}: atual={actual!r}, esperado={expected!r}")
     alias_report = None
     resolution = None
+    resolution_identity = None
     try:
         alias = Alias.from_bytes(options["backgroundImageAlias"])
         alias_report = identity(alias)
@@ -166,8 +191,9 @@ def verify_layout(root, alias_factory=None, alias_resolver=None):
             failures.append("background Alias perdeu a dica POSIX de volume gerada pelo upstream")
         if alias_report == expected and text(alias.target.posix_path) in (RELATIVE_BACKGROUND, "/" + RELATIVE_BACKGROUND) and hint:
             resolution = (alias_resolver or resolve_alias)(options["backgroundImageAlias"], background)
-            if not os.path.samefile(resolution["path"], background):
-                failures.append(f"background resolveu fora da montagem atual: {resolution}, esperado={background}")
+            resolution_identity = compare_resolved_file(resolution, background)
+            if not resolution_identity["same_object"]:
+                failures.append("background resolveu fora da montagem atual: " + json.dumps(resolution_identity, ensure_ascii=False))
     except Exception as error:
         failures.append(f"background Alias inválido/identidade nativa indisponível: {type(error).__name__}: {error}")
     summary = {
@@ -176,6 +202,7 @@ def verify_layout(root, alias_factory=None, alias_resolver=None):
         "background_alias": alias_report,
         "background_volume_hint": text(alias.volume.posix_path) if alias_report is not None and alias.volume.posix_path else None,
         "background_native_resolution": resolution,
+        "background_file_identity": resolution_identity,
         "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
     }
     if failures:

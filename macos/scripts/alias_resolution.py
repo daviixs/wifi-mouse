@@ -45,7 +45,7 @@ def resolve_native(data, cf=None):
             owned.append(error.value)
         if not url:
             code = cf.CFErrorGetCode(error) if error.value else "sem CFError"
-            raise RuntimeError(f"CoreFoundation não resolveu background Alias (CFError code={code}); ejete outras cópias do volume antes de testar")
+            raise RuntimeError(f"CoreFoundation não resolveu background Alias (CFError code={code}); consulte identidade do Alias e montagens desta imagem no diagnóstico")
         owned.append(url)
         path = C.create_string_buffer(65536)
         if not cf.CFURLGetFileSystemRepresentation(url, True, path, len(path)):

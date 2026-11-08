@@ -97,9 +97,34 @@ class MetadataTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             other = Path(directory) / "background.png"
             other.write_bytes(BACKGROUND.read_bytes())
-            with self.assertRaisesRegex(metadata.MetadataError, "fora da montagem atual"):
+            with self.assertRaisesRegex(metadata.MetadataError, "fora da montagem atual") as raised:
                 metadata.verify_layout(self.root, alias_factory=fixture_alias,
                                        alias_resolver=lambda data, expected: {"path": str(other), "stale": False})
+            for field in ("device", "inode", "canonical_path", "same_object", str(other)):
+                self.assertIn(field, str(raised.exception))
+            identities = metadata.compare_resolved_file({"path": str(other)}, self.root / metadata.RELATIVE_BACKGROUND)
+            self.assertFalse(identities["same_object"])
+            self.assertNotEqual(identities["resolved"]["inode"], identities["expected"]["inode"])
+
+    def test_stale_true_is_accepted_when_the_actual_file_matches(self):
+        result = metadata.verify_layout(self.root, alias_factory=fixture_alias,
+                                        alias_resolver=lambda data, expected: {"path": str(expected), "stale": True})
+        self.assertTrue(result["background_native_resolution"]["stale"])
+        self.assertTrue(result["background_file_identity"]["same_object"])
+
+    def test_file_identity_handles_symlink_and_missing_target_without_path_guesses(self):
+        background = self.root / metadata.RELATIVE_BACKGROUND
+        link = self.root / "alias-path"
+        link.symlink_to(background)
+        same = metadata.compare_resolved_file({"path": str(link)}, background)
+        self.assertTrue(same["same_object"])
+        self.assertEqual(same["resolved"]["canonical_path"], str(background.resolve()))
+        missing = metadata.compare_resolved_file({"path": str(self.root / "missing")}, background)
+        self.assertFalse(missing["same_object"])
+        self.assertFalse(missing["resolved"]["exists"])
+        self.assertTrue(missing["expected"]["exists"])
+        self.assertIn("device", missing["expected"])
+        self.assertIn("inode", missing["expected"])
 
     def test_system_hidden_folder_is_not_deleted_or_modified(self):
         system = self.root / ".fseventsd"

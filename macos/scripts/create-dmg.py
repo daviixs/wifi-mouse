@@ -13,6 +13,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import uuid
 
 from dmg_metadata import MetadataError, write_layout, verify_layout
 
@@ -72,23 +73,52 @@ def detach(mount):
         raise BuildError(f"Volume continua montado: {mount.path}")
 
 
+def new_volume_name():
+    # ASCII <=27 bytes: do not truncate the v2 Alias volume-name field.
+    return "Remote Mouse " + uuid.uuid4().hex[:12]
+
+
+def canonical_mount_path(volume_name):
+    return Path("/Volumes") / volume_name
+
+
+def mount_report(mount):
+    """Only report entities of this execution's exact image, never other images."""
+    try:
+        info = plistlib.loads(run(["/usr/bin/hdiutil", "info", "-plist"]))
+        entities = []
+        for image in info.get("images", []):
+            candidate = image.get("image-path")
+            if candidate and Path(candidate).resolve() == mount.image.resolve():
+                entities.extend({key: entry[key] for key in ("dev-entry", "mount-point", "content-hint") if key in entry}
+                                for entry in image.get("system-entities", []))
+        return {"image": str(mount.image), "expected_mount": str(mount.path), "entities": entities}
+    except Exception as error:
+        return {"image": str(mount.image), "diagnostic_error": str(error)}
+
+
 def attach(mount, readonly):
-    mount.path.mkdir()
+    if mount.path.exists() or mount.path.is_symlink():
+        raise BuildError(f"Caminho canônico já ocupado; nada foi removido: {mount.path}")
     flags = ["-readonly"] if readonly else ["-readwrite"]
+    # Let hdiutil create its normal /Volumes/<filesystem-name> mount, as dmgbuild
+    # does. Never mkdir/delete /Volumes entries or force an existing volume away.
     output = run(["/usr/bin/hdiutil", "attach", *flags, "-nobrowse", "-noautoopen",
-                  "-mountpoint", mount.path, "-plist", mount.image], timeout=90)
+                  "-plist", mount.image], timeout=90)
     info = plistlib.loads(output)
-    matching = [entry for entry in info.get("system-entities", [])
-                if entry.get("mount-point") == str(mount.path)]
-    if len(matching) != 1 or mount.path.resolve() not in attached_paths(mount.image):
-        raise BuildError("hdiutil não confirmou o mountpoint privado solicitado.")
+    actual = [Path(entry["mount-point"]).resolve() for entry in info.get("system-entities", []) if "mount-point" in entry]
+    owned = attached_paths(mount.image)
+    if actual != [mount.path.resolve()] or owned != [mount.path.resolve()]:
+        raise BuildError(f"hdiutil não confirmou o mount canônico único; retorno={actual}, "
+                         f"imagem própria={owned}, esperado={mount.path}. Não se aceita sufixo/caminho alternativo.")
 
 
 def image_layout(mode, mount):
     try:
         report = write_layout(mount.path) if mode == "write" else verify_layout(mount.path)
     except (MetadataError, OSError, ValueError) as error:
-        raise BuildError(f"Layout metadata[{mode}], mount={mount.path}: {error}") from error
+        raise BuildError(f"Layout metadata[{mode}], mount={mount.path}: {error}; "
+                         f"montagens desta imagem={json.dumps(mount_report(mount), ensure_ascii=False)}") from error
     print(f"Layout metadata[{mode}] " + json.dumps(report, ensure_ascii=False))
     return report["sha256"]
 
@@ -117,6 +147,9 @@ def build(app, background, output):
     run(["/usr/bin/codesign", "--verify", "--deep", "--strict", app])
     work = Path(tempfile.mkdtemp(prefix=".dmg-layout-", dir=output.parent))
     owned = []
+    volume_name = new_volume_name()
+    mount_path = canonical_mount_path(volume_name)
+    print(f"Volume interno exclusivo: {volume_name}; mount canônico: {mount_path}")
     try:
         content = work / "content"
         (content / ".background").mkdir(parents=True)
@@ -124,9 +157,9 @@ def build(app, background, output):
         shutil.copyfile(background, content / ".background/background.png")
         (content / "Applications").symlink_to("/Applications")
         writable = work / "layout.dmg"
-        run(["/usr/bin/hdiutil", "create", "-volname", "Remote Mouse", "-fs", "HFS+",
+        run(["/usr/bin/hdiutil", "create", "-volname", volume_name, "-fs", "HFS+",
              "-srcfolder", content, "-format", "UDRW", writable], timeout=600)
-        editable_mount = OwnedMount(writable, work / "mount-rw")
+        editable_mount = OwnedMount(writable, mount_path)
         owned.append(editable_mount) # track before attach, including partial attach failure
         attach(editable_mount, readonly=False)
         layout_digest = image_layout("write", editable_mount)
@@ -135,7 +168,7 @@ def build(app, background, output):
         compressed = work / "ready.dmg"
         run(["/usr/bin/hdiutil", "convert", writable, "-format", "UDZO",
              "-imagekey", "zlib-level=9", "-o", compressed], timeout=600)
-        readonly_mount = OwnedMount(compressed, work / "mount-ro")
+        readonly_mount = OwnedMount(compressed, mount_path)
         owned.append(readonly_mount)
         attach(readonly_mount, readonly=True)
         verify_contents(readonly_mount, background)
@@ -159,7 +192,8 @@ def build(app, background, output):
                 detach(mount)
                 # If attach unexpectedly used another path, preserve the workspace.
                 if attached_paths(mount.image):
-                    raise BuildError(f"Imagem ainda montada em caminho inesperado: {mount.image}")
+                    raise BuildError("Imagem ainda montada em caminho inesperado; temporários preservados: "
+                                     + json.dumps(mount_report(mount), ensure_ascii=False))
             except Exception as error:
                 cleanup_errors.append(str(error))
         if cleanup_errors:

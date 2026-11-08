@@ -1,5 +1,19 @@
 # Estado da validação desta entrega
 
+## Resolução canônica e identidade observável (base 460dc17)
+
+**Evidência recebida:** após converter/remontar, CoreFoundation retornou `/Volumes/Remote Mouse/.background/background.png`, não o fundo de `mount-ro`; `stale=true`. O guard já comparava com `samefile`, portanto não era só divergência textual: a mensagem específica mostra que retornou identidade divergente naquele instante, não um erro stat de arquivo ausente. O log não registrava os números de device/inode nem os caminhos canônicos. Não demonstra cache, outra imagem montada, nem o motivo do fallback. Não há fundamento para culpar uma montagem deixada pelo usuário.
+
+**Divergência corrigida:** o pipeline forçava dois mountpoints privados, diferente de `hdiutil attach` normal no dmgbuild. Agora cria um nome interno exclusivo `Remote Mouse <12 hex>` (25 bytes, campo Alias v2 suporta 27), deixa hdiutil criar `/Volumes/<nome>` e exige esse mesmo caminho na escrita e na montagem readonly, sem rename do volume entre fases. O sufixo fica visível no título do volume; nomes do app/DMG e layout/arte não mudam. O caminho já ocupado ou sufixado é rejeitado sem remover entradas em /Volumes ou desmontar imagens alheias.
+
+**Não é relaxamento:** Alias.for_file permanece intacto, destino relativo, datas/CNIDs e comparação nativa contra arquivo vivo continuam obrigatórios. O resolvedor não ganha UI, montagem de volumes, base relativa especulativa nem fallback por hash. Agora a comparação device/inode (mesma regra de samefile) mostra existência, path canônico e os IDs de ambos os arquivos. Symlink canônico equivalente é aceito, arquivo de conteúdo idêntico com outro inode é recusado; stale é apenas informação. Falhas de layout incluem só entidades hdiutil do arquivo de imagem desta execução, não a tabela de discos alheios. Os IDs de device são comparados dentro de cada fase, nunca entre RW e RO.
+
+**Testado Linux:** 17 testes metadata (codecs binários/fixture upstream reais, identidade nativa/resolvedor com fixture declarada), 14 testes de orquestração com mocks de ferramentas Apple, 4 testes CoreFoundation com stubs, 12 resources, checker 45×3, sintaxe Python/shell e diff. Lint, typecheck e 39 testes motion/services também passam. Casos novos: mesmo mount canônico RW/RO, nome exclusivo/campo Alias, recusa de caminho ocupado/sufixado, diagnósticos limitados à imagem própria, identidade de arquivos reais/symlink/ausente, stale=true com identidade correta aceito. Nenhum comando Mac foi executado.
+
+**Pendente:** resolução CoreFoundation/mac_alias nativos, hdiutil e renderização Finder no Mac. Corrigiu-se uma divergência concreta do fluxo upstream, não se provou a causa interna do resolvedor nem o resultado visual. Aprovação nativa exige build com identidade exata nas duas fases, metadata/PNG/digest íntegros e depois abertura visual com ornamentos/texto e centros alinhados. Se falhar, enviar o diagnóstico stat/montagens desta imagem; não iniciar uma sequência de compensações. App/Rust/arte não alterados.
+
+As seções abaixo registram etapas anteriores.
+
 ## Fundo: Alias upstream intacto e resolução nativa (base 4bd2182)
 
 O DMG anterior foi produzido no Mac, com arquivo de layout e PNG íntegros, mas a UI ficou branca. O log/captura não demonstra a causa exclusiva da renderização. A arte PNG desta box foi inspecionada e contém os ornamentos/texto aprovados.

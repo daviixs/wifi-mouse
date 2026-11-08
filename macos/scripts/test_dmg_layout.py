@@ -2,6 +2,7 @@
 """Portable safety/orchestration tests with mocked Apple tools; not Finder validation."""
 import importlib.util
 import os
+import plistlib
 import re
 from pathlib import Path
 import struct
@@ -70,6 +71,7 @@ class DmgLayoutTests(unittest.TestCase):
         app.mkdir()
         output = root / "result.dmg"
         calls = []
+        mount_paths = []
 
         def tool(arguments, timeout=120):
             if "create" in arguments:
@@ -80,9 +82,15 @@ class DmgLayoutTests(unittest.TestCase):
             return b""
 
         def mount_image(mount, readonly):
-            mount.path.mkdir()
+            mount.path.mkdir(parents=True)
+            mount_paths.append(mount.path)
             (mount.path / ".DS_Store").write_bytes(b"mock-metadata")
             calls.append(("attach", readonly))
+
+        def unmount_image(mount):
+            if mount.path.exists():
+                (mount.path / ".DS_Store").unlink()
+                mount.path.rmdir()  # only a test-owned, now-empty temporary folder
 
         def layout(mode, mount):
             calls.append(("layout", mode))
@@ -91,7 +99,8 @@ class DmgLayoutTests(unittest.TestCase):
             return "changed" if mode == "verify" and corrupt_readonly else "same-digest"
 
         with patch.object(dmg, "run", side_effect=tool), patch.object(dmg, "attach", side_effect=mount_image), \
-             patch.object(dmg, "detach"), patch.object(dmg, "attached_paths", return_value=[]), \
+             patch.object(dmg, "detach", side_effect=unmount_image), patch.object(dmg, "attached_paths", return_value=[]), \
+             patch.object(dmg, "canonical_mount_path", side_effect=lambda name: root / "canonical" / name), \
              patch.object(dmg, "verify_contents"), \
              patch.object(dmg, "image_layout", side_effect=layout), \
              patch.dict(os.environ, {"CODESIGN_IDENTITY": "-"}):
@@ -102,6 +111,11 @@ class DmgLayoutTests(unittest.TestCase):
             else:
                 dmg.build(app, BACKGROUND, output)
                 self.assertEqual(output.read_bytes(), b"verified-readonly-image")
+        self.assertEqual(len(mount_paths), 2)
+        self.assertEqual(mount_paths[0], mount_paths[1])
+        self.assertRegex(mount_paths[0].name, r"^Remote Mouse [0-9a-f]{12}$")
+        create = next(command for command in calls if isinstance(command, list) and "create" in command)
+        self.assertEqual(create[create.index("-volname") + 1], mount_paths[0].name)
         self.assertIn(("attach", False), calls)
         self.assertIn(("attach", True), calls)
         self.assertLess(calls.index(("layout", "write")), calls.index(("layout", "verify")))
@@ -126,9 +140,10 @@ class DmgLayoutTests(unittest.TestCase):
             app.mkdir()
             output = root / "result.dmg"
             def mount_image(mount, readonly):
-                mount.path.mkdir()
+                mount.path.mkdir(parents=True)
             with patch.object(dmg, "run", return_value=b""), \
                  patch.object(dmg, "attach", side_effect=mount_image), \
+                 patch.object(dmg, "canonical_mount_path", side_effect=lambda name: root / "canonical" / name), \
                  patch.object(dmg, "image_layout", side_effect=dmg.BuildError("Finder denied")), \
                  patch.object(dmg, "detach", side_effect=dmg.BuildError("volume busy")), \
                  patch.object(dmg.shutil, "rmtree") as remove:
@@ -137,6 +152,57 @@ class DmgLayoutTests(unittest.TestCase):
                 remove.assert_not_called()
                 self.assertFalse(output.exists())
                 self.assertEqual(len(list(root.glob(".dmg-layout-*"))), 1)
+
+    def test_volume_labels_are_unique_and_fit_the_alias_v2_field(self):
+        names = {dmg.new_volume_name() for _ in range(64)}
+        self.assertEqual(len(names), 64)
+        for name in names:
+            self.assertRegex(name, r"^Remote Mouse [0-9a-f]{12}$")
+            self.assertLessEqual(len(name.encode("ascii")), 27)
+            self.assertEqual(dmg.canonical_mount_path(name), Path("/Volumes") / name)
+
+    def test_attach_uses_canonical_automount_not_a_custom_mountpoint(self):
+        with tempfile.TemporaryDirectory() as directory:
+            mount = dmg.OwnedMount(Path(directory) / "image.dmg", Path(directory) / "planned-volume")
+            reply = plistlib.dumps({"system-entities": [{"mount-point": str(mount.path)}]})
+            with patch.object(dmg, "run", return_value=reply) as run, patch.object(dmg, "attached_paths", return_value=[mount.path]):
+                dmg.attach(mount, readonly=True)
+                args = run.call_args.args[0]
+                self.assertIn("-readonly", args)
+                self.assertNotIn("-mountpoint", args)
+                self.assertNotIn("-mountroot", args)
+                self.assertNotIn("-mountrandom", args)
+                self.assertFalse(mount.path.exists())  # our code never mkdirs the mount
+
+    def test_attach_never_overwrites_or_unmounts_an_existing_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            marker = root / "keep"
+            marker.write_bytes(b"not ours")
+            with patch.object(dmg, "run") as run:
+                with self.assertRaisesRegex(dmg.BuildError, "já ocupado"):
+                    dmg.attach(dmg.OwnedMount(root / "image.dmg", root), False)
+                run.assert_not_called()
+            self.assertEqual(marker.read_bytes(), b"not ours")
+
+    def test_attach_rejects_automatic_suffix_and_reports_only_owned_mounts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            mount = dmg.OwnedMount(root / "image.dmg", root / "expected")
+            actual = root / "expected 1"
+            reply = plistlib.dumps({"system-entities": [{"mount-point": str(actual)}]})
+            with patch.object(dmg, "run", return_value=reply), patch.object(dmg, "attached_paths", return_value=[actual]):
+                with self.assertRaisesRegex(dmg.BuildError, "sufixo/caminho alternativo"):
+                    dmg.attach(mount, False)
+            info = {"images": [
+                {"image-path": str(mount.image), "system-entities": [{"dev-entry": "/dev/owned", "mount-point": str(actual)}]},
+                {"image-path": "/private/unrelated/image.dmg", "system-entities": [{"dev-entry": "/dev/other", "mount-point": "/Volumes/Private"}]},
+            ]}
+            with patch.object(dmg, "run", return_value=plistlib.dumps(info)):
+                report = dmg.mount_report(mount)
+            self.assertEqual(report["entities"], [{"dev-entry": "/dev/owned", "mount-point": str(actual)}])
+            self.assertNotIn("Private", str(report))
+            self.assertNotIn("unrelated", str(report))
 
     def test_command_timeout_becomes_clear_error(self):
         with patch.object(dmg.subprocess, "run", side_effect=dmg.subprocess.TimeoutExpired("osascript", 90)):
