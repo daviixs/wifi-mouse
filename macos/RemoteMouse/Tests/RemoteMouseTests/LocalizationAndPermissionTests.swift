@@ -18,7 +18,7 @@ final class LocalizationAndPermissionTests: XCTestCase {
         XCTAssertEqual(L10n.value("button.quit", language: "en"), "Quit")
         XCTAssertEqual(L10n.value("button.quit", language: "es"), "Salir")
         for language in ["pt-BR", "en", "es"] {
-            for key in ["permission.required", "permission.explanation", "button.accessibility", "button.helper", "error.probe.timeout"] {
+            for key in ["permission.required", "permission.explanation", "button.accessibility", "button.helper", "error.probe.timeout", "permission.mismatch", "button.recheck", "button.permission.diagnostic"] {
                 XCTAssertNotEqual(L10n.value(key, language: language), key)
             }
             XCTAssertTrue(L10n.value("error.launch", language: language).contains("%@"))
@@ -42,6 +42,22 @@ final class LocalizationAndPermissionTests: XCTestCase {
         XCTAssertFalse(state.isBlocking)
         XCTAssertNil(state.problem)
     }
+    func testContainerTrustIsDiagnosticOnlyAndCannotAuthorizeTheInputAgent() {
+        var state = AccessibilityState()
+        state.confirm(false, appTrusted: true)
+        XCTAssertTrue(state.attributionMismatch)
+        XCTAssertTrue(state.isBlocking)
+        state.confirm(nil, problem: "probe failed", appTrusted: true)
+        XCTAssertTrue(state.isBlocking)
+        state.confirm(true, appTrusted: false) // helper itself confirmed; app cache is irrelevant
+        XCTAssertFalse(state.isBlocking)
+        XCTAssertFalse(state.attributionMismatch)
+        state.confirm(false, appTrusted: true) // revoke relocks even with container allowed
+        XCTAssertTrue(state.isBlocking)
+        state.confirm(true, appTrusted: true) // fresh process after relaunch/grant
+        XCTAssertFalse(state.isBlocking)
+    }
+
     func testFoundationResolvesFlatAndSwiftBuildResourceRoots() throws {
         let manager = FileManager.default
         let temporary = manager.temporaryDirectory.appendingPathComponent(UUID().uuidString)

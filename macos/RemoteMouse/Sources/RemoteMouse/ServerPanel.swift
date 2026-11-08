@@ -18,12 +18,10 @@ struct ServerPanel: View {
     @ObservedObject var model: AgentController
 
     var body: some View {
-        ZStack {
-            content
-                .disabled(model.permissionBlocked)
-                .allowsHitTesting(!model.permissionBlocked)
-                .accessibilityHidden(model.permissionBlocked)
-            if model.permissionBlocked { permissionOverlay }
+        Group {
+            // Replace, rather than dim, the dashboard. No dashboard text is
+            // composited behind the permission screen, including during scrolling.
+            if model.permissionBlocked { permissionOverlay } else { content }
         }
         .frame(width: 380, height: 720)
         .background(LinearGradient(colors: [Color(red: 0.04, green: 0.10, blue: 0.42),
@@ -166,14 +164,13 @@ struct ServerPanel: View {
         model.helperTrusted == true ? L10n.text("permission.allowed") : model.permissionMessage
     }
 
-    /// Not dismissible: the entire background is disabled and hidden from VoiceOver.
+    /// Not dismissible: the dashboard is absent from the render/VoiceOver tree.
     /// Settings, Finder and Quit remain accessible even while probing or stopping.
     private var permissionOverlay: some View {
         VStack(spacing: 0) {
-            ScrollView(showsIndicators: false) {
+            ScrollView(showsIndicators: true) {
                 VStack {
-                    Spacer(minLength: 0)
-                    VStack(spacing: 18) {
+                    VStack(spacing: 16) {
                         Image(systemName: "hand.raised.fill")
                             .font(.system(size: 42)).foregroundStyle(.cyan)
                             .accessibilityHidden(true)
@@ -185,6 +182,7 @@ struct ServerPanel: View {
                         }
                         Text(model.permissionMessage)
                             .font(.system(size: 13)).multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
                         if model.accessibility.problem != nil || model.helperTrusted == nil {
                             Text(L10n.text("permission.explanation"))
                                 .font(.system(size: 12)).foregroundStyle(Theme.muted)
@@ -195,6 +193,11 @@ struct ServerPanel: View {
                         }
                         .buttonStyle(PanelButtonStyle(primary: true))
                         .keyboardShortcut(.defaultAction)
+                        .disabled(model.permissionChecking)
+                        Button(L10n.text("button.recheck")) { model.refreshPermission() }
+                            .buttonStyle(PanelButtonStyle())
+                            .disabled(model.permissionChecking)
+                        Divider().overlay(Theme.border)
                         Text(L10n.text("permission.helper.help"))
                             .font(.system(size: 11)).foregroundStyle(Theme.muted)
                             .multilineTextAlignment(.center)
@@ -202,15 +205,20 @@ struct ServerPanel: View {
                             Label(L10n.text("button.helper"), systemImage: "folder")
                                 .frame(maxWidth: .infinity)
                         }.buttonStyle(PanelButtonStyle())
+                        Button(L10n.text("button.permission.diagnostic"), action: model.copyPermissionDiagnostics)
+                            .buttonStyle(PanelButtonStyle())
                         Text(L10n.text("permission.automatic"))
                             .font(.system(size: 11)).foregroundStyle(Theme.muted)
                             .multilineTextAlignment(.center)
                     }
-                    .panelCard()
+                    .padding(18)
+                    .frame(maxWidth: .infinity)
+                    .background(Color(red: 0.08, green: 0.12, blue: 0.25))
+                    .clipShape(RoundedRectangle(cornerRadius: 18))
+                    .overlay(RoundedRectangle(cornerRadius: 18).stroke(Theme.border))
                     .accessibilityElement(children: .contain)
-                    Spacer(minLength: 0)
                 }
-                .frame(minHeight: 600)
+                .frame(maxWidth: .infinity)
                 .padding(20)
             }
             // Outside the scroll region: Quit remains visible with long translations.
@@ -220,7 +228,8 @@ struct ServerPanel: View {
                 .frame(maxWidth: .infinity)
                 .padding(.top, 8).padding(.bottom, 16)
         }
-        .background(Color.black.opacity(0.65))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(red: 0.03, green: 0.05, blue: 0.12))
         .contentShape(Rectangle())
     }
 
@@ -232,7 +241,9 @@ private struct PanelButtonStyle: ButtonStyle {
         configuration.label.font(.system(size: 12)).padding(.vertical, 13).padding(.horizontal, 12)
             .background {
                 if primary {
-                    LinearGradient(colors: [Color(red: 0.25, green: 0.63, blue: 1), Theme.blue, Color(red: 0.29, green: 0.24, blue: 0.96)],
+                    LinearGradient(colors: [Color(red: 0.10, green: 0.30, blue: 0.70),
+                                            Color(red: 0.14, green: 0.25, blue: 0.62),
+                                            Color(red: 0.25, green: 0.18, blue: 0.62)],
                                    startPoint: .leading, endPoint: .trailing)
                 } else { Theme.card }
             }

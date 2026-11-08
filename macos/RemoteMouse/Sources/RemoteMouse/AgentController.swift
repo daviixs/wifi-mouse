@@ -2,6 +2,7 @@ import AppKit
 import ApplicationServices
 import Combine
 import Foundation
+import Darwin
 
 @MainActor
 final class AgentController: ObservableObject {
@@ -12,7 +13,9 @@ final class AgentController: ObservableObject {
     var helperTrusted: Bool? { accessibility.trusted }
     var permissionBlocked: Bool { accessibility.isBlocking }
     var permissionMessage: String {
-        accessibility.problem ?? L10n.text(helperTrusted == nil ? "permission.checking" : "permission.explanation")
+        if let problem = accessibility.problem { return problem }
+        if accessibility.attributionMismatch { return L10n.text("permission.mismatch") }
+        return L10n.text(helperTrusted == nil ? "permission.checking" : "permission.explanation")
     }
     @Published private(set) var addresses: [String] = []
     @Published private(set) var port: UInt16 = 8765
@@ -21,6 +24,8 @@ final class AgentController: ObservableObject {
     @Published private(set) var detail = L10n.text("detail.idle")
     @Published private(set) var copied = false
 
+    @Published private(set) var permissionChecking = false
+    private var lastProbe = "not completed"
     private var permissionProbe: Process?
     private var probeOutput: Pipe?
     private var probeTimedOut = false
@@ -49,7 +54,8 @@ final class AgentController: ObservableObject {
     }
     var address: String? { addresses.first.map { "ws://\($0):\(port)" } }
 
-    init() {
+    init(monitorPermission: Bool = true) {
+        guard monitorPermission else { return } // deterministic state tests; production always monitors
         refreshPermission()
         timer = Timer(timeInterval: 2, repeats: true) { [weak self] _ in
             Task { @MainActor in
@@ -82,14 +88,17 @@ final class AgentController: ObservableObject {
         let task = Process(), stdout = Pipe()
         task.executableURL = executable
         task.arguments = [prompt ? "--request-accessibility" : "--check-accessibility"]
+        task.currentDirectoryURL = executable.deletingLastPathComponent()
         // A mismatched older helper must fail parsing instead of starting a server.
         var environment = ProcessInfo.processInfo.environment
         environment["REMOTE_MOUSE_BIND"] = "permission-check-only"
+        environment["REMOTE_MOUSE_DESKTOP"] = "1"
         task.environment = environment
         task.standardInput = FileHandle.nullDevice
         task.standardOutput = stdout
         task.standardError = FileHandle.nullDevice
         permissionProbe = task; probeOutput = stdout; probeTimedOut = false
+        permissionChecking = true
         task.terminationHandler = { [weak self] task in
             // Check-only output is one small JSON line. Drain only after termination,
             // off the UI thread, so EOF cannot race the event reader of the server.
@@ -103,7 +112,8 @@ final class AgentController: ObservableObject {
         } catch {
             try? stdout.fileHandleForReading.close()
             try? stdout.fileHandleForWriting.close()
-            permissionProbe = nil; probeOutput = nil
+            permissionProbe = nil; probeOutput = nil; permissionChecking = false
+            lastProbe = "launch: \(error.localizedDescription)"
             updatePermission(nil, problem: L10n.text("error.launch", error.localizedDescription))
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self, weak task] in
@@ -111,13 +121,21 @@ final class AgentController: ObservableObject {
             self.probeTimedOut = true
             self.updatePermission(nil, problem: L10n.text("error.probe.timeout"))
             task.terminate() // only this owned, finite check process
+            // A hung process ignoring SIGTERM must not hold the single-flight
+            // slot forever. Never signal by name or an unrelated process.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self, weak task] in
+                guard let self, let task, self.permissionProbe === task, task.isRunning else { return }
+                _ = Darwin.kill(task.processIdentifier, SIGKILL)
+            }
         }
     }
 
     private func finishPermissionProbe(_ task: Process, data: Data) {
         guard permissionProbe === task else { return }
-        permissionProbe = nil; probeOutput = nil
-        guard !quitting else { return }
+        permissionProbe = nil; probeOutput = nil; permissionChecking = false
+        lastProbe = "pid=\(task.processIdentifier), mode=\(task.arguments?.first ?? "unknown"), exit=\(task.terminationStatus), timeout=\(probeTimedOut), output="
+            + String(decoding: data.prefix(4096), as: UTF8.self)
+        guard !quitting else { completeQuitIfReady(); return }
         if probeTimedOut {
             updatePermission(nil, problem: L10n.text("error.probe.timeout"))
         } else {
@@ -137,7 +155,7 @@ final class AgentController: ObservableObject {
     }
 
     private func updatePermission(_ trusted: Bool?, problem: String? = nil) {
-        accessibility.confirm(trusted, problem: problem)
+        accessibility.confirm(trusted, problem: problem, appTrusted: AXIsProcessTrusted())
         if trusted != true, process != nil, phase != .stopping {
             stop(failure: L10n.text("detail.revoked"))
         }
@@ -149,12 +167,33 @@ final class AgentController: ObservableObject {
     }
 
     func openAccessibility() {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-        _ = AXIsProcessTrustedWithOptions(options)
+        // Prompt from the actual input executable, in exactly the same Process
+        // responsibility chain as the server. macOS may display the host app's
+        // name; that does NOT imply a second helper entry is always required.
         refreshPermission(prompt: true)
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    func copyPermissionDiagnostics() {
+        // Only our bundle/helper and their public signature metadata, never TCC.db.
+        let report: [String: Any] = [
+            "bundle_path": Bundle.main.bundleURL.path,
+            "bundle_id": Bundle.main.bundleIdentifier ?? "unknown",
+            "app_pid": ProcessInfo.processInfo.processIdentifier,
+            "app_ax_observed": accessibility.appTrusted.map { $0 as Any } ?? NSNull(),
+            "helper_ax": helperTrusted.map { $0 as Any } ?? NSNull(),
+            "helper_path": helperExecutable?.path ?? "missing",
+            "last_probe": lastProbe,
+            "problem": accessibility.problem ?? "none",
+            "app_disk_signature": PermissionDiagnostics.signature(Bundle.main.bundleURL),
+            "helper_disk_signature": helperExecutable.map { PermissionDiagnostics.signature($0) } ?? [:],
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]),
+              let text = String(data: data, encoding: .utf8) else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 
     func openNetworkSettings() {
@@ -173,6 +212,7 @@ final class AgentController: ObservableObject {
         let task = Process()
         let stdin = Pipe(), stdout = Pipe(), stderr = Pipe()
         task.executableURL = executable
+        task.currentDirectoryURL = executable.deletingLastPathComponent()
         var environment = ProcessInfo.processInfo.environment
         environment["REMOTE_MOUSE_DESKTOP"] = "1"
         environment["REMOTE_MOUSE_BIND"] = "0.0.0.0:8765"
@@ -270,15 +310,37 @@ final class AgentController: ObservableObject {
             guard let self, let task, self.process === task, task.isRunning else { return }
             task.terminate()
         }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self, weak task] in
+            guard let self, let task, self.process === task, task.isRunning else { return }
+            _ = Darwin.kill(task.processIdentifier, SIGKILL)
+        }
     }
 
     func quit(completion: @escaping () -> Void) {
         quitting = true
-        timer?.invalidate()
-        if let task = permissionProbe, task.isRunning { task.terminate() }
-        guard process != nil else { completion(); return }
         shutdownCompletion = completion
-        stop()
+        timer?.invalidate()
+        pendingPrompt = false
+        if let task = permissionProbe, task.isRunning {
+            task.terminate()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self, weak task] in
+                guard let self, let task, self.permissionProbe === task, task.isRunning else { return }
+                _ = Darwin.kill(task.processIdentifier, SIGKILL)
+            }
+        }
+        if process != nil { stop() }
+        completeQuitIfReady()
+    }
+
+    nonisolated static func canFinishQuit(quitting: Bool, hasServer: Bool, hasProbe: Bool) -> Bool {
+        quitting && !hasServer && !hasProbe
+    }
+
+    private func completeQuitIfReady() {
+        guard Self.canFinishQuit(quitting: quitting, hasServer: process != nil, hasProbe: permissionProbe != nil) else { return }
+        let completion = shutdownCompletion
+        shutdownCompletion = nil
+        completion?()
     }
 
     private func finished(_ task: Process) {
@@ -298,9 +360,7 @@ final class AgentController: ObservableObject {
         } else if shutdownCompletion == nil {
             detail = L10n.text("detail.stopped")
         }
-        let completion = shutdownCompletion
-        shutdownCompletion = nil
-        completion?()
+        completeQuitIfReady()
     }
 
     private func cleanup() {

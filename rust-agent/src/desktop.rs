@@ -40,6 +40,24 @@ fn accessibility(prompt: bool) -> bool {
     unsafe { AXIsProcessTrustedWithOptions(options.as_concrete_TypeRef().cast()) != 0 }
 }
 
+/// Check in the actual server process before binding or constructing Enigo.
+/// A trusted GUI/probe cannot stand in for this process's current TCC decision.
+pub fn require_accessibility() -> io::Result<()> {
+    permission_guard(accessibility(false))
+}
+
+fn permission_guard(trusted: bool) -> io::Result<()> {
+    if trusted {
+        Ok(())
+    } else {
+        emit(json!({"event": "permission", "accessibility": false}));
+        Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "Accessibility denied for the input process; authorize the current installed app in System Settings",
+        ))
+    }
+}
+
 /// Must run before binding, Enigo initialization or mDNS. Even denied checks exit 0:
 /// authorization is the JSON boolean, whereas process failure means unknown.
 pub fn check_permission_mode() -> bool {
@@ -141,6 +159,15 @@ impl Drop for ClientStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn server_requires_its_own_actual_permission() {
+        assert!(permission_guard(true).is_ok());
+        assert_eq!(
+            permission_guard(false).unwrap_err().kind(),
+            io::ErrorKind::PermissionDenied
+        );
+    }
+
     #[test]
     fn control_is_explicit_and_does_not_accept_partial_commands() {
         assert_eq!(parse_command("status\n"), Command::Status);

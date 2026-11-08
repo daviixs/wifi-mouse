@@ -45,3 +45,13 @@ example
 
 # local Expo module build output
 modules/*/android/build/
+
+# Local planning notes and generated patch deliveries (not application source)
+/docs/superpowers/plans/
+*.patch
+# Untracked secret environments / signing material; never force-add these.
+.env
+.env.*
+*.pfx
+*.cer
+*.keystore

@@ -8,23 +8,20 @@ struct RemoteMouseApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     var body: some Scene {
-        MenuBarExtra {
-            ServerPanel(model: delegate.model)
-        } label: {
-            Label("Remote Mouse", systemImage: "computermouse.fill")
-        }
-        .menuBarExtraStyle(.window)
+        Settings { EmptyView() } // NSStatusItem owns left/right click routing.
     }
 }
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = AgentController()
+    private var statusBar: StatusBarController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // A helper can exit between isRunning and a pipe write. Handle EPIPE,
         // rather than letting SIGPIPE terminate the menu bar app.
         signal(SIGPIPE, SIG_IGN)
+        statusBar = StatusBarController(model: model)
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {

@@ -1,6 +1,6 @@
 # Remote Mouse para macOS
 
-App nativo **SwiftUI + AppKit**, residente na barra de menus, para macOS 13 ou superior. Clique no ícone de mouse no topo da tela para abrir o painel. O macOS decide a posição dos itens: o aplicativo não pode fixar seu ícone ao lado da câmera/notch. Não há ícone no Dock (`LSUIElement`).
+App nativo **SwiftUI + AppKit**, residente na barra de menus, para macOS 13 ou superior. Clique esquerdo no ícone de mouse no topo abre/fecha o painel; clique direito abre o menu **Sair / Quit / Salir**, conforme o idioma, inclusive sem permissão. O macOS decide a posição dos itens: o aplicativo não pode fixar seu ícone ao lado da câmera/notch. Não há ícone no Dock (`LSUIElement`).
 
 O painel usa o azul-marinho, gradientes azuis, cards arredondados e a ilustração de computador do visual mobile como referência. Interface em pt-BR, inglês ou espanhol, escolhida automaticamente pelo idioma do sistema na abertura (fallback em inglês). Não é um app iOS e não altera o mobile nem os diretórios gerados `ios/`/`android/`.
 
@@ -14,13 +14,27 @@ O painel usa o azul-marinho, gradientes azuis, cards arredondados e a ilustraç�
 - Mostra a permissão de Acessibilidade do **agente que injeta input**, separada da permissão do app Swift; abre os ajustes de Acessibilidade e Rede.
 - Exibe falhas de inicialização/porta ocupada sem tomar a porta ou encerrar outro agente.
 
-Enquanto a permissão **real do helper** estiver negada, desconhecida ou com erro de verificação, um aviso bloqueia o painel. O fundo fica sem interação e fora da navegação do VoiceOver; **Abrir ajustes**, **Mostrar agente no Finder** e **Sair/⌘Q** continuam disponíveis. A autorização apenas do app Swift não libera o painel.
+Enquanto a permissão **real do helper** estiver negada, desconhecida ou com erro de verificação, um aviso bloqueia o painel. O dashboard é retirado da árvore visual/VoiceOver, não apenas escurecido; a tela e o card do aviso têm superfícies RGB totalmente opacas, sem material/transparência. O texto cresce verticalmente e os CTAs ficam separados em uma área rolável; **Abrir ajustes**, **Mostrar agente no Finder** e **Sair/⌘Q** continuam disponíveis. A autorização apenas do app Swift não libera o painel.
 
 Um processo curto do próprio helper executa `--check-accessibility` a cada dois segundos (também ao reativar o app). Ele retorna somente a autorização do processo real, **antes de interpretar o bind, construir Enigo, abrir servidor, anunciar mDNS ou injetar input**. `--request-accessibility` é usado somente após clicar no CTA para solicitar a autorização. A consulta não depende de iniciar o servidor, evitando o bloqueio circular de exigir permissão para verificar permissão. Um bind propositalmente inválido é passado às consultas para impedir que um helper antigo/incompatível abra servidor por acidente.
 
-Concessão libera o painel automaticamente; revogação ou falha de verificação volta a bloquear e encerra o servidor pertencente ao app. A verificação tem timeout de cinco segundos e é repetida automaticamente. Processos novos evitam confiar no cache de autorização de um servidor antigo. Ao conceder novamente, o servidor **não** reinicia sozinho: clique em Iniciar servidor. Indicadores de rolagem estão ocultos, mas conteúdo e aviso continuam roláveis por trackpad/roda e acessíveis.
+Concessão libera o painel automaticamente; revogação ou falha de verificação volta a bloquear e encerra o servidor pertencente ao app. A verificação tem timeout de cinco segundos e é repetida automaticamente. Se o processo ignorar SIGTERM, SIGKILL após mais dois segundos libera o slot apenas após sua terminação; só existe uma consulta em voo. Processos novos evitam confiar no cache de autorização de um servidor antigo. Ao conceder novamente, o servidor **não** reinicia sozinho: clique em Iniciar servidor. O aviso tem indicador de rolagem; Sair fica fora da área rolável. O dashboard normal continua rolável sem indicador.
 
 Por segurança, o servidor só inicia quando você clica em **Iniciar servidor**. Não há inicialização automática no login nesta versão.
+
+### Atribuição TCC: sem fingir autorização
+
+AXIsProcessTrustedWithOptions verifica o **processo que chama a API**; o prompt é assíncrono e seu retorno não significa que o usuário acabou de aceitar. A atribuição TCC também considera o app responsável pela cadeia de execução: um helper iniciado diretamente pelo app pode aparecer nos ajustes como **Remote Mouse**, sem exigir uma segunda entrada. Não se usa API privada para separar essa responsabilidade.
+
+O CTA agora solicita apenas pelo helper embutido, com a mesma cadeia `Process`, diretório e executável usados pelo servidor; não dispara dois prompts concorrentes app/helper. O estado do app Swift é mostrado apenas como diagnóstico. **Nunca** se faz `appTrusted || helperTrusted`: a liberação depende de uma resposta válida/exit 0 da consulta real do helper. Além disso, o próprio servidor consulta AX novamente **antes do bind e de Enigo**, rejeitando início se negado. Concessão não inicia o listener automaticamente.
+
+Se o app informa autorizado e o helper informa negado, há mensagem específica. Isso não prova que o helper precise de entrada separada: assinatura ad-hoc alterada, cópia antiga, execução por Terminal/DMG ou cache/atribuição são hipóteses a distinguir. O padrão do build é assinatura ad-hoc; outro build pode exigir remover/adicionar **somente a entrada desta instalação** nos ajustes. Não se acessa/reset TCC.db nem se pede acesso amplo a Terminal.
+
+**Copiar diagnóstico de permissão** copia somente caminhos/PIDs do próprio app/helper, resultados AX, saída/código/mode da última consulta e metadados públicos de assinatura no disco (validade, flags, identificador, team e cdhash). Não coleta banco TCC, rede ou conteúdo privado. A observação AX do app pode ter cache; não é prova de permissão do helper. Se continuar bloqueado, esse JSON é o diagnóstico mínimo necessário antes de outra mudança.
+
+**Limite comprovado:** a sobreposição vinha de um dimmer alpha 0,65 + card alpha 0,45/0,55 sobre o dashboard. Corrigido por substituição da árvore e fundos sem alpha. A causa do grant não observado naquele Mac não foi reproduzida; fluxo/diagnóstico foram corrigidos sem contornar consentimento. SwiftUI, TCC e menu nativos ainda precisam ser compilados/testados no Mac.
+
+Referências: [AXUIElement.h — caller e prompt assíncrono](https://raw.githubusercontent.com/phracker/MacOSX-SDKs/master/MacOSX11.3.sdk/System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/HIServices.framework/Versions/A/Headers/AXUIElement.h), [responsible process — Qt](https://www.qt.io/blog/the-curious-case-of-the-responsible-process), [Apple TN2206 — identidade de código](https://developer.apple.com/library/archive/technotes/tn2206/_index.html).
 
 ## Arquitetura e ciclo de vida
 
@@ -29,7 +43,7 @@ O bundle contém:
 ```text
 Remote Mouse.app/
   Contents/Info.plist
-  Contents/MacOS/RemoteMouse         # UI SwiftUI / MenuBarExtra (.window)
+  Contents/MacOS/RemoteMouse         # UI SwiftUI / NSStatusItem + NSPopover
   Contents/MacOS/remote-mouse-agent  # o agente Rust deste repositório
   Contents/Resources/RemoteMouse.icns
   Contents/Resources/RemoteMouse_RemoteMouse.bundle/  # Localizable.strings pt-BR/en/es
@@ -40,7 +54,7 @@ A UI inicia apenas o executável irmão dentro do próprio bundle, com `REMOTE_M
 
 O helper mantém protocolo WebSocket v1, mDNS `_remotemouse._tcp` e injeção enigo existentes. Apenas o modo desktop publica linhas JSON prefixadas por `REMOTE_MOUSE_EVENT ` em stdout e aceita `status`/`stop` em stdin. Logs normais são ignorados pela UI; stderr é drenado com limite de memória. O modo CLI normal continua funcionando sem stdin de controle.
 
-`stop` ou EOF do pipe inicia encerramento limpo, inclusive se houver cliente preso antes do handshake WebSocket. São removidos anúncio mDNS e listener. Se o helper não sair, a UI envia SIGINT após 3 segundos e SIGTERM após 6 segundos **somente ao Process que criou**. Ao sair, a UI aguarda a terminação. Se a UI cair, EOF encerra o helper. Não há serviço privilegiado nem daemon instalado.
+`stop` ou EOF do pipe inicia encerramento limpo, inclusive se houver cliente preso antes do handshake WebSocket. São removidos anúncio mDNS e listener. Se o helper não sair, a UI envia SIGINT após 3 segundos e SIGTERM após 6 segundos e SIGKILL como último recurso após 8 segundos **somente ao Process que criou**. Ao sair, a UI aguarda a terminação do servidor e da eventual consulta curta de permissão antes de concluir `applicationShouldTerminate`. Se a UI cair, EOF encerra o helper. Não há serviço privilegiado nem daemon instalado.
 
 mDNS disponível significa que a biblioteca aceitou o anúncio; não é confirmação de que outro dispositivo o descobriu. Firewall, isolamento de rede ou permissão de Rede Local podem impedir a descoberta mesmo com servidor online.
 
@@ -184,7 +198,7 @@ Referências: [settings/window_rect e limite grid_spacing](https://dmgbuild.read
 ## Primeira execução e permissões
 
 1. Abra o DMG e arraste **Remote Mouse** para **Applications**. Ejete o DMG e execute a cópia instalada (não a cópia montada no DMG).
-2. Clique no ícone na barra de menus e em **Abrir ajustes de Acessibilidade** no aviso sobreposto. Autorize Remote Mouse e, se necessário, `remote-mouse-agent`. **Mostrar agente no Finder** revela o executável para adicioná-lo com o botão + nos ajustes. O painel só é liberado após a consulta real ao helper confirmar autorização. Ele fica em `/Applications/Remote Mouse.app/Contents/MacOS/remote-mouse-agent` (no seletor do Finder, use ⌘⇧G para ir ao caminho).
+2. Clique no ícone na barra de menus e em **Abrir ajustes de Acessibilidade** na tela opaca de permissão. Autorize a instalação atual do Remote Mouse. Só adicione `remote-mouse-agent` separadamente se o macOS solicitar esse executável. **Mostrar agente no Finder** revela o executável para adicioná-lo com o botão + nos ajustes. O painel só é liberado após a consulta real ao helper confirmar autorização. Ele fica em `/Applications/Remote Mouse.app/Contents/MacOS/remote-mouse-agent` (no seletor do Finder, use ⌘⇧G para ir ao caminho).
 3. A mudança de permissão é detectada automaticamente, sem abrir servidor para consultar. Depois de o aviso sumir, clique em **Iniciar servidor**. Se revogar a autorização, o aviso retorna e o servidor é encerrado automaticamente. A verificação do helper é a fonte do status de controle, não a suposição de que o app pai foi autorizado.
 4. Permita **Rede Local** se o macOS solicitar e **conexões de entrada** no Firewall. Em versões com esse controle, confira **Privacidade e Segurança → Rede Local** se a descoberta falhar. O botão Wi-Fi abre os ajustes de rede.
 5. No celular, conectado à mesma rede Wi-Fi, escolha este Mac na descoberta automática. Como alternativa, digite no mobile um dos IPs exibidos (não o IP de VPN/outra interface). A porta é 8765. **Copiar endereço** copia a URL completa para diagnóstico.
@@ -241,22 +255,53 @@ python3 macos/scripts/smoke-agent.py "macos/dist/arm64/Remote Mouse.app" --permi
 python3 macos/scripts/smoke-agent.py "macos/dist/arm64/Remote Mouse.app"
 ```
 
+**Atenção:** o smoke abaixo executa o helper como filho do Terminal/Python, não reproduz a cadeia responsável do app aberto pelo Finder. Um resultado diferente não prova defeito na permissão do app; não autorize o Terminal para mascarar isso. A consulta dentro do painel é o teste relevante do bundle instalado.
+
 O modo `--permission-only` roda com configuração de bind inválida para comprovar que a consulta não chega à inicialização do servidor; resultado `false` é válido e não é falha do processo. O smoke test completo inicia **seus próprios** helpers em porta temporária; não envia input e não mexe em processos existentes. Verifica evento ready/permissão real, conflito de porta, stop com cliente travado no handshake e encerramento por EOF. Pode solicitar permissão para o helper de teste; valide também o app instalado.
 
 Checklist manual obrigatório no Mac:
 
-- Sem Dock; ícone abre/fecha o painel; painel não ultrapassa a área útil (há rolagem).
-- Permissão inicialmente negada/desconhecida: aviso indeletável, fundo inativo, CTA e Sair/⌘Q funcionam; não há servidor ou anúncio mDNS durante consultas.
+- Sem Dock; esquerdo abre/fecha painel; direito abre menu Sair/Quit/Salir nos três idiomas, com permissão negada, servidor parado e servidor ativo. O menu usa somente NSStatusItem/NSPopover/NSMenu públicos, sem inspecionar janelas de outros hosts.
+- Permissão inicialmente negada/desconhecida: aviso opaco sem letras do dashboard por trás, rolagem até todos os CTAs e Sair/⌘Q visíveis; não há servidor ou anúncio mDNS durante consultas.
 - Concessão sem iniciar servidor libera automaticamente; só autorizar o app pai não deve bastar se o helper não estiver autorizado.
 - Revogação enquanto conectado retorna aviso e para servidor; concessão posterior libera sem reiniciar servidor automaticamente.
 - Falha/timeout do helper não libera o painel; novas consultas recuperam sem travar a UI.
-- Idiomas pt-BR, en, es nas preferências do sistema/app (reinicie o app após mudar idioma), textos longos, leitores de tela e rolagem sem indicadores.
+- Idiomas pt-BR, en, es nas preferências do sistema/app (reinicie o app após mudar idioma), textos longos, leitores de tela e indicador no aviso; verificar 380×720 e tela pequena.
 - Mover o .app para outra pasta/Mac sem a pasta .build: traduções e descrição de Rede Local continuam disponíveis.
 - Porta ocupada não mata outro processo; tentar novamente funciona após liberar a porta.
 - Iniciar/parar várias vezes; conexão/desconexão do celular atualiza o painel.
 - Mouse, teclado, atalhos, mídia e volume continuam funcionando pelo celular.
 - IP/cópia em Wi-Fi, múltiplas interfaces e troca de rede; descoberta mDNS/manual.
-- **Sair**, fechamento do painel e encerramento forçado da UI: fechar painel não para servidor; sair/EOF para o helper. Não deve sobrar listener na porta.
+- **Sair** pelo menu direito, pelo painel/⌘Q, fechamento do painel e encerramento forçado da UI: fechar painel não para servidor; sair/EOF para o helper. Não deve sobrar listener na porta.
 - Build Intel/Apple Silicon, app instalado em `/Applications`, Firewall e Rede Local.
 
 Consulte [VALIDACAO.md](VALIDACAO.md) para distinguir implementação de validação real. Não há teste de runtime macOS no Linux.
+
+
+## Aplicar este patch e testar a instalação correta
+
+Este patch é incremental sobre `e059be5` (correção de Alias). Não há confirmação visual do último DMG; esta entrega não altera nem certifica seu layout. Na raiz:
+
+```bash
+git am ~/Downloads/remote-mouse-macos-accessibility-fix.patch
+macos/scripts/test.sh
+macos/scripts/build-app.sh arm64
+```
+
+Encerre o Remote Mouse antigo usando Sair antes de substituir o app. Pelo Finder, preserve/mova a cópia antiga de `/Applications/Remote Mouse.app` para uma pasta de arquivo, depois copie **o bundle inteiro** `macos/dist/arm64/Remote Mouse.app` para `/Applications`. Abra essa cópia pelo Finder, não seu executável interno/Terminal e não de um DMG montado. Não copie apenas um executável ou traduções sobre uma assinatura existente. Autorize essa instalação; a consulta silenciosa deve liberar o painel sem iniciar servidor. Depois teste Iniciar, revogar, conceder novamente e relançar. Se não liberar, copie o diagnóstico do próprio painel e pare antes de tentar outra correção especulativa. Regerar DMG é opcional para este teste; siga a seção de arquivamento se precisar dele.
+
+## Como enviar os commits ao GitHub
+
+`git am` **já cria um commit para cada patch**; não há necessidade de `git add .` nem de recommitar os mesmos arquivos como outra pessoa. A branch deste checkout é `feat/macos-menubar`; o remote existente `origin` aponta para `https://github.com/daviixs/wifi-mouse.git`. Não foi alterado nem houve push/fetch nesta entrega. No seu checkout confira, antes de enviar:
+
+```bash
+git status --short
+git log -12 --oneline
+git branch --show-current
+git remote -v
+git diff --cached --stat
+# Somente depois de conferir branch, destino e commits:
+git push -u origin "$(git branch --show-current)"
+```
+
+Não inclua builds, credenciais, patches baixados ou `docs/superpowers/plans/`. `.gitignore` cobre `rust-agent/target`, `macos/dist`, `.build/.swiftpm`, segredos comuns e planos locais. Ignore não remove arquivos já rastreados: confira `git ls-files docs/superpowers/plans` (vazio nesta base) e `git status --short`. Uma spec antiga em `docs/superpowers/specs` já era rastreada; não foi removida/alterada. Se houver mudanças próprias além dos patches, revise e adicione somente caminhos explícitos desejados; não use `git add .`. Se o push for recusado por divergência, pare e examine o histórico — não use force-push/reset.

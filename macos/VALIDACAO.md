@@ -1,5 +1,23 @@
 # Estado da validação desta entrega
 
+## Painel opaco, permissão verificável e menu direito (base e059be5)
+
+**Defeito visual provado no código:** dashboard permanecia atrás de dimmer 0,65 e card translúcido; por isso texto vazava. Agora só uma árvore existe por vez: permissão ou dashboard. Tela/card de permissão usam RGB opaco, texto de altura livre, CTAs separados, ScrollView com indicador e Sair fora da rolagem. Nenhuma mudança de arte/DMG/mobile.
+
+**Fluxo AX:** removido prompt duplo do app e helper. O CTA chama o helper correto na mesma cadeia Process/diretório do servidor; macOS pode atribuir a solicitação ao contêiner responsável. AX do app é apenas diagnóstico, jamais OR para liberar. Mismatch app=true/helper=false tem mensagem traduzida; desconhecido/erro continuam bloqueantes. Poll silencioso single-flight a cada 2s, ao abrir/reativar; timeout 5s + encerramento forçado apenas do probe próprio após 2s evita slot preso em SIGTERM. A própria inicialização Rust agora rejeita AX negado antes do bind/Enigo. Mudança mínima de guard, sem alterar protocolo/injeção.
+
+**Causa TCC ainda não demonstrada no Mac:** não há resultado AX/cdhash/path real da falha recebida. Ad-hoc default do build e múltiplas instalações podem explicar entradas antigas, mas não são conclusões. Botão de diagnóstico copia só dados do app/helper: paths/PIDs, app AX observado, helper AX, última saída/exit/modo e assinatura estática (validade, flags, identificador, team/cdhash). Não lê/reset TCC nem injeta input. Se persistir após instalar/autorizar o bundle atual, esse JSON é o diagnóstico mínimo, não uma nova rodada de suposições.
+
+**Menu direito:** NSStatusItem/NSPopover/NSMenu públicos substituem MenuBarExtra para distinguir leftMouseUp (painel) e rightMouseUp (Sair/Quit/Salir). Menu funciona independente da permissão ou servidor. Todos os caminhos de Sair passam pelo delegate e aguardam servidor e probe próprios; stop/EOF, SIGINT 3s, SIGTERM 6s e último recurso SIGKILL 8s no servidor, sem killall/processos alheios.
+
+**Executado Linux:** npm lint/typecheck e 39 testes motion/services; 12 testes reais de recursos; checker 48 chaves×3 idiomas; testes DMG portáveis preservados; cargo check --locked --target aarch64-apple-darwin e --tests aprovados. Rust testes foram typechecked, não executados nativamente. Tentativa cargo test --no-run desse target falhou no link por ausência de SDK/linker Apple (xcrun/frameworks), não por erro de Rust. Swift/Xcode não estão instalados nesta box; parser portátil tree-sitter conferiu gramática dos 11 arquivos Swift (ferramenta externa ao repo, sem dependência de runtime), não compilação/typecheck. Contraste calculado dos RGB opacos e stops dos CTAs ≥4,5:1; não é screenshot renderizada. Novos testes Swift cobrem mismatch/deny/grant/revoke/relaunch de estado, roteamento dos cliques, gate de espera por ambos os filhos e Sair sem helper; execução depende do Mac.
+
+**Validação Mac obrigatória:** executar macos/scripts/test.sh e build-app.sh arm64, encerrar antiga, preservar cópia anterior e instalar bundle inteiro em /Applications via Finder. Abrir esse bundle; testar negar, solicitar/grant sem listener (painel libera sozinho), iniciar, revogar (para servidor), conceder (não autoinicia), relançar e atualizar ad-hoc. Conferir três idiomas, aviso opaco e rolável, menu direito em todos os estados e Sair sem helper/porta órfãos. Smoke em Terminal tem outra cadeia TCC: não usar sua permissão como prova do app nem conceder acesso amplo ao Terminal. Não houve comandos em Mac, CloudAgent/clone/push/PR. Último DMG continua sem aprovação visual confirmada.
+
+**Git:** entrega local como Remote Mouse Bot; git am já cria commits. Só o usuário decide executar push da branch existente após conferir status/log/remote. Planos locais/builds/segredos ignorados; nada privado varrido e nada já rastreado removido.
+
+As seções abaixo são histórico das entregas de DMG.
+
 ## Resolução canônica e identidade observável (base 460dc17)
 
 **Evidência recebida:** após converter/remontar, CoreFoundation retornou `/Volumes/Remote Mouse/.background/background.png`, não o fundo de `mount-ro`; `stale=true`. O guard já comparava com `samefile`, portanto não era só divergência textual: a mensagem específica mostra que retornou identidade divergente naquele instante, não um erro stat de arquivo ausente. O log não registrava os números de device/inode nem os caminhos canônicos. Não demonstra cache, outra imagem montada, nem o motivo do fallback. Não há fundamento para culpar uma montagem deixada pelo usuário.

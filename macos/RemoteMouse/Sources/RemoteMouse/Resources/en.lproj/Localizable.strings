@@ -40,6 +40,9 @@
 "permission.allowed" = "Helper authorized to control the mouse and keyboard.";
 "permission.checking" = "Checking the helper’s actual authorization…";
 "permission.required" = "Allow control of this Mac";
-"permission.explanation" = "Enable Remote Mouse (or remote-mouse-agent) in System Settings → Privacy & Security → Accessibility. This panel unlocks automatically after confirmation.";
-"permission.helper.help" = "If the helper is not listed, use + in settings to add it. The button below reveals the correct executable in Finder.";
+"permission.explanation" = "In System Settings → Privacy & Security → Accessibility, allow this installation of Remote Mouse. The request comes from the agent inside the app; macOS may label it Remote Mouse. The panel unlocks only after the agent confirms authorization.";
+"permission.helper.help" = "Use the copy installed in /Applications, opened from Finder, not the executable in Terminal or the DMG. If an old build has an outdated entry, remove only that entry in Settings and add the current app with +. Add the agent separately only if macOS requests that executable.";
 "permission.automatic" = "Checks run automatically. No server is opened during this step.";
+"permission.mismatch" = "The app reports authorization, but the input agent still reports not authorized. Unlocking control is unsafe. Request again below and check the current installation in Settings. If this persists, copy diagnostics to identify the path, signature and actual result.";
+"button.recheck" = "Check again";
+"button.permission.diagnostic" = "Copy permission diagnostics";

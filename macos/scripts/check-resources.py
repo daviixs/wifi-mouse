@@ -34,7 +34,7 @@ def main():
     assert build.count('python3 "$ROOT/macos/scripts/bundle_resources.py"') == 2
     assert '"$RESOURCES/$language_dir.lproj/Localizable.strings"' not in build
     main_rs = (ROOT / "rust-agent/src/main.rs").read_text()
-    assert main_rs.index("desktop::check_permission_mode()") < main_rs.index("TcpListener::bind") < main_rs.index("Enigo::new")
+    assert main_rs.index("desktop::check_permission_mode()") < main_rs.index("desktop::require_accessibility()") < main_rs.index("TcpListener::bind") < main_rs.index("Enigo::new")
     print(f"OK: {len(expected)} keys × 3 languages, format arguments, localized privacy text, packaging declarations and early check-only guard.")
 
 

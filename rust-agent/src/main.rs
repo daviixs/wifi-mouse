@@ -32,6 +32,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     if desktop::check_permission_mode() {
         return Ok(());
     }
+    desktop::require_accessibility()?;
     let bind_address = env::var("REMOTE_MOUSE_BIND")
         .unwrap_or_else(|_| DEFAULT_BIND_ADDRESS.to_owned())
         .parse::<SocketAddr>()?;
