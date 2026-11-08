@@ -82,10 +82,72 @@ def attach(mount, readonly):
         raise BuildError("hdiutil não confirmou o mountpoint privado solicitado.")
 
 
+EXPECTED_BOUNDS = (120, 120, 760, 622)
+EXPECTED_SIZE = (640, 502) # script-coordinate contract; 640×480 art + nominal chrome
+
+
+def read_rectangle(text):
+    try:
+        rectangle = tuple(int(value) for value in text.split(","))
+    except ValueError as error:
+        raise BuildError(f"Bounds inválidos do Finder: {text!r}") from error
+    if len(rectangle) != 4:
+        raise BuildError(f"Bounds do Finder precisam de quatro coordenadas: {text!r}")
+    return rectangle
+
+
+def require_dimensions(rectangle, phase, report):
+    width, height = rectangle[2] - rectangle[0], rectangle[3] - rectangle[1]
+    if (width, height) != EXPECTED_SIZE:
+        raise BuildError(f"Finder[{phase}] dimensão incorreta: atual={width}x{height}, esperado=640x502 "
+                         f"nas coordenadas bounds; arte nominal=640x480. {report}. "
+                         "Não foi aplicada compensação presumida de título/chrome. Copie este diagnóstico completo.")
+
+
+def validate_layout_report(output, mode):
+    fields = output.decode(errors="replace").strip().split("\t")
+    if len(fields) != 4 or fields[:2] != ["OK", mode]:
+        raise BuildError(f"Finder[{mode}] relatório inválido: {output!r}")
+    after_set = None if fields[2] == "n/a" else read_rectangle(fields[2])
+    after_reopen = read_rectangle(fields[3])
+    report = (f"pedido={EXPECTED_BOUNDS}; após definir={after_set}; após reabrir={after_reopen}; "
+              "toolbar/sidebar/status ocultos e ícones/fundo verificados; origem de tela pode mudar")
+    if mode == "configure":
+        if after_set is None:
+            raise BuildError(f"Finder[configure] leitura após definir ausente; {report}")
+        require_dimensions(after_set, "configure:after-set", report)
+    elif mode != "verify" or after_set is not None:
+        raise BuildError(f"Finder[{mode}] fase/leitura inesperada; {report}")
+    require_dimensions(after_reopen, mode + ":after-reopen", report)
+    # A translated rectangle is not a resized window. Never demand a fixed screen
+    # origin after remount, and never accept a width/height mismatch as a tolerance.
+    return report
+
+
 def finder_layout(mode, mount, script):
-    result = run(["/usr/bin/osascript", script, mode, mount.path], timeout=90)
-    if result.strip() != b"OK":
-        raise BuildError("Finder não confirmou o layout. DMG final não será publicado.")
+    try:
+        result = run(["/usr/bin/osascript", script, mode, mount.path], timeout=90)
+    except BuildError as error:
+        raise BuildError(f"Fase Finder={mode}, mount={mount.path}: {error}") from error
+    report = validate_layout_report(result, mode)
+    print(f"Finder[{mode}] {report}")
+
+
+def wait_for_store(mount, timeout=10, clock=time.monotonic, pause=time.sleep):
+    deadline = clock() + timeout
+    previous, stable = None, 0
+    while clock() < deadline:
+        try:
+            stat = (mount.path / ".DS_Store").stat()
+            fingerprint = (stat.st_size, stat.st_mtime_ns) if stat.st_size > 0 else None
+        except FileNotFoundError:
+            fingerprint = None
+        stable = stable + 1 if fingerprint is not None and fingerprint == previous else 0
+        if stable >= 3:
+            return
+        previous = fingerprint
+        pause(0.2)
+    raise BuildError(f"Finder[configure:DS_Store] metadados não estabilizaram em {timeout}s: {mount.path}")
 
 
 def verify_contents(mount, background):
@@ -125,14 +187,7 @@ def build(app, background, output, script):
         owned.append(editable_mount) # track before attach, including partial attach failure
         attach(editable_mount, readonly=False)
         finder_layout("configure", editable_mount, script)
-        deadline = time.monotonic() + 10
-        while time.monotonic() < deadline:
-            try:
-                if (editable_mount.path / ".DS_Store").stat().st_size > 0:
-                    break
-            except FileNotFoundError:
-                pass
-            time.sleep(0.2) # bounded wait for Finder's asynchronous metadata flush
+        wait_for_store(editable_mount)
         verify_contents(editable_mount, background)
         detach(editable_mount)
         compressed = work / "ready.dmg"

@@ -1,5 +1,16 @@
 # Estado da validação desta entrega
 
+## Correção/diagnóstico incremental: bounds do Finder
+
+Evidência do código: a verificação anterior comparava o retângulo inteiro e chamava qualquer diferença de “tamanho inicial não persistido”, sem fase nem coordenadas. Isso confunde reposicionamento com redimensionamento. Não há evidência dos bounds reais do Mac no erro recebido, logo não se atribui a falha definitivamente a reposicionamento, título/chrome ou `.DS_Store`.
+
+Implementado: coordenadas primitivas após setter/reabertura; validação numérica separada da origem, exigindo dimensões exatas 640×502 sem tolerância; fase configure vs verify e ambos os retângulos no erro. Pedido de bounds passa a ocorrer após as opções de visualização; removido o encolhimento intermediário de dez pontos; leituras estáveis limitadas; metadados não vazios com size/mtime estáveis antes da desmontagem. A imagem 640×480 e as posições dos ícones continuam intactas. Não foi aplicada compensação presumida para a decoração do Finder.
+
+Validação Linux: **18 testes de DMG passaram**. Novos testes executam de verdade o parser/validador de coordenadas (translação/múltiplas telas permitidas, tamanho um ponto incorreto rejeitado, delta de 22 pontos rejeitado e reportado, fases diferentes, protocolo inválido) e escrita/stat de arquivos temporários para estabilidade/timeout de metadados. Testes de fluxo com hdiutil/osascript continuam com mocks e não provam Finder. Também passaram os 12 testes de resources, checker de 45 chaves × 3 idiomas, sintaxe shell e Python.
+
+**Não executado:** compilação/execução AppleScript, Finder real, leitura real de `.DS_Store`, geração/remontagem de DMG no macOS. Não se promete que isso resolva o caso do Mac se a dimensão realmente estiver diferente: nesse caso o patch foi desenhado para parar com o dado mínimo necessário (fase, pedido, após setter, após reabertura). Apenas um novo log real permite decidir se a suposição anterior de decoração era válida. Não repetidas suítes mobile/Rust porque nenhum código do app/agente foi alterado.
+
+
 ## Correção incremental: falso “tradução ausente: pt-BR”
 
 Origem rastreada em `build-app.sh`: verificação física exclusivamente na raiz do `.bundle`, depois de `swift build`. A caixa já era tratada (`pt-br` e `pt-BR`). Uma fixture com o layout SwiftBuild macOS documentado (`Contents/Resources/pt-br.lproj/Localizable.strings`) reproduziu o falso negativo do guard antigo, enquanto o novo resolvedor encontrou e validou as 45 chaves. As fontes pt-BR/en/es e o manifest `.process`/`defaultLocalization` estão presentes/corretos.

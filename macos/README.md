@@ -107,7 +107,7 @@ Bundles anteriores são preservados com sufixo `previous.<data-hora>` (hora loca
 
 ## Janela do instalador DMG
 
-O fundo branco minimalista aprovado está em `macos/Resources/dmg/`. O original JPEG (1152×864) é preservado, e a imagem pronta para o Finder mede **640×480**. O instalador usa área útil nominal 640×480 e bounds iniciais do Finder **{120,120,760,622}**: janela externa de **640×502** pontos, reservando aproximadamente 22 pontos para o título. O chrome/escala do macOS pode variar ligeiramente; a legenda e os ornamentos têm margem.
+O fundo branco minimalista aprovado está em `macos/Resources/dmg/`. O original JPEG (1152×864) é preservado, e a imagem pronta para o Finder mede **640×480**. A arte/área útil pretendida é **640×480**. O pedido atual ao Finder é **{120,120,760,622}**, um retângulo de **640×502 nas coordenadas AppleScript**. A versão inicial presumiu 22 pontos de título, mas isso não foi calibrado no Mac do proprietário: não se deve afirmar que esses números sejam universalmente a moldura externa ou a área de conteúdo. O novo diagnóstico registra o retorno real do Finder antes/depois de reabrir. A legenda e os ornamentos têm margem.
 
 Ícones: app à esquerda em **(170,240)**, Applications à direita em **(470,240)**, alinhados à seta central; tamanho **72**, nomes **12**, labels embaixo. Visualização por ícones, sem organização automática, sem toolbar/sidebar/status bar. Apenas app e Applications são itens visíveis na visualização normal; o fundo fica em `.background/` e os metadados em `.DS_Store`. A preferência pessoal de exibir arquivos ocultos continua sob controle do usuário.
 
@@ -138,11 +138,30 @@ Para assinar o novo container, mantenha `CODESIGN_IDENTITY` com sua identidade D
 
 `build-dmg.sh` chama `create-dmg.py` (biblioteca padrão). É criado um workspace único e uma imagem HFS+ gravável. O Finder grava o layout real por `dmg-layout.applescript`; não são fabricados bytes de `.DS_Store`. O fundo é um arquivo do próprio volume, referenciado por alias relativo à raiz desse volume, não uma string com o caminho temporário do host.
 
-Depois de fechar a janela, o build aguarda `.DS_Store`, desmonta sua imagem, converte para **UDZO somente leitura**, monta novamente em **outro mountpoint privado**, e verifica no Finder tamanho, visualização, barras, posições, nomes e fundo **sem reaplicar configurações**. Somente após essas verificações, desmontagem, assinatura opcional e `hdiutil verify` o arquivo final é publicado atomicamente, sem sobrescrever destino existente.
+Depois de fechar a janela, o build aguarda `.DS_Store` não vazio com tamanho/mtime estáveis por amostras consecutivas (máximo 10 segundos), desmonta sua imagem, converte para **UDZO somente leitura**, monta novamente em **outro mountpoint privado**, e verifica no Finder tamanho, visualização, barras, posições, nomes e fundo **sem reaplicar configurações**. Somente após essas verificações, desmontagem, assinatura opcional e `hdiutil verify` o arquivo final é publicado atomicamente, sem sobrescrever destino existente.
 
 O macOS pode pedir autorização para o Terminal/host de build controlar o **Finder** em **Privacidade e Segurança → Automação**. Isso é separado da Acessibilidade do app Remote Mouse. Se negar, se não houver sessão gráfica, ou se a automação/layout falhar, o build termina com erro; não produz silenciosamente um DMG com layout padrão. Apple Events têm timeout de 60 segundos e `osascript` tem limite total de 90 segundos. Não há UI scripting, alteração de TCC, desativação de proteções ou execução como administrador.
 
 Limpeza verifica o caminho da imagem e o mountpoint específico criados por esta execução; nunca ejeta por nome de volume, não usa unmount forçado e não toca discos alheios. Se não puder confirmar a desmontagem, preserva o workspace indicado no erro em vez de remover uma pasta que ainda pode conter volume montado. Resolva essa montagem antes de remover seus temporários manualmente.
+
+### Diagnóstico de tamanho e persistência
+
+O erro antigo “tamanho inicial não persistido” comparava os **quatro números** de bounds. Portanto, podia acusar tamanho errado quando apenas x/y mudavam ao reabrir/remontar em outra posição de tela. Esse defeito de classificação é verificável no código; não prova que tenha sido a diferença observada no Mac, porque o erro antigo não registrava os números reais.
+
+A correção separa origem de **largura/altura**, sem tolerância: o contrato atual continua exigindo exatamente **640×502 nas coordenadas retornadas por bounds**. Um retângulo transladado de mesmo tamanho passa; diferenças de um ponto ou de 22 pontos **não** são aceitas automaticamente. Também não se supõe que “is not” de AppleScript esteja quebrado: o cálculo numérico/testável agora ocorre em Python sobre coordenadas primitivas retornadas pelo Finder.
+
+O tamanho é definido **uma vez, depois** de opções/barras/fundo/ícones. Foi removida a sequência intermediária de encolher dez pontos e aumentar novamente. São coletadas leituras estáveis após o setter e após fechar/reabrir; a remontagem somente leitura continua apenas verificando, nunca corrigindo configurações. O script não altera preferências globais nem tenta corrigir chrome por números mágicos.
+
+O log contém `pedido`, `após definir`, `após reabrir` e a fase:
+
+- `configure:after-set`: Finder não retornou o tamanho solicitado após o setter; pode ser semântica de coordenadas/chrome ou limitação de tela.
+- `configure:after-reopen`: setter estava correto, mas a reabertura retornou dimensão diferente; precisa investigar persistência/ajuste do Finder.
+- `verify:after-reopen`: divergência após conversão/remontagem somente leitura.
+- `configure:DS_Store`: o arquivo de metadados não ficou estável no limite de espera.
+
+Essas são classificações, não diagnósticos definitivos de uma causa macOS. **Se ainda falhar, envie a linha completa `Finder[...]` com os dois retângulos reais**; não basta a mensagem antiga sem coordenadas. Isso permite decidir se há diferença de decoração ou gravação, sem escolher tamanhos ao acaso ou enfraquecer o gate. Enquanto uma dimensão real diferir do contrato, o DMG não é publicado.
+
+Se o `.app` já foi criado, não recompile o app/Rust: basta `macos/scripts/build-dmg.sh arm64` (Intel: `x86_64`). Caso um DMG anterior exista, arquive-o com o bloco da seção acima; não o apague para diagnosticar.
 
 Testes portáveis (não substituem Finder real):
 

@@ -2,6 +2,7 @@
 """Portable safety/orchestration tests with mocked Apple tools; not Finder validation."""
 import importlib.util
 import os
+import re
 from pathlib import Path
 import struct
 import sys
@@ -90,7 +91,8 @@ class DmgLayoutTests(unittest.TestCase):
 
         with patch.object(dmg, "run", side_effect=tool), patch.object(dmg, "attach", side_effect=mount_image), \
              patch.object(dmg, "detach"), patch.object(dmg, "attached_paths", return_value=[]), \
-             patch.object(dmg, "verify_contents"), patch.object(dmg, "finder_layout", side_effect=layout), \
+             patch.object(dmg, "verify_contents"), patch.object(dmg, "wait_for_store"), \
+             patch.object(dmg, "finder_layout", side_effect=layout), \
              patch.dict(os.environ, {"CODESIGN_IDENTITY": "-"}):
             if fail_readonly:
                 with self.assertRaises(dmg.BuildError):
@@ -130,6 +132,66 @@ class DmgLayoutTests(unittest.TestCase):
                 remove.assert_not_called()
                 self.assertFalse(output.exists())
                 self.assertEqual(len(list(root.glob(".dmg-layout-*"))), 1)
+
+    def test_bounds_origin_translation_is_not_a_resize(self):
+        output = b"OK\tconfigure\t120,120,760,622\t180,160,820,662"
+        report = dmg.validate_layout_report(output, "configure")
+        self.assertIn("após reabrir=(180, 160, 820, 662)", report)
+
+    def test_readonly_bounds_accept_negative_multimonitor_origin(self):
+        report = dmg.validate_layout_report(b"OK\tverify\tn/a\t-1000,50,-360,552", "verify")
+        self.assertIn("origem de tela pode mudar", report)
+
+    def test_one_pixel_size_mismatch_is_not_tolerated(self):
+        with self.assertRaisesRegex(dmg.BuildError, "verify:after-reopen.*atual=639x502"):
+            dmg.validate_layout_report(b"OK\tverify\tn/a\t120,120,759,622", "verify")
+
+    def test_titlebar_sized_delta_is_diagnosed_not_guessed_away(self):
+        with self.assertRaisesRegex(dmg.BuildError, "atual=640x480.*Não foi aplicada compensação"):
+            dmg.validate_layout_report(b"OK\tconfigure\t120,142,760,622\t120,142,760,622", "configure")
+
+    def test_after_set_mismatch_is_distinct_from_persistence_mismatch(self):
+        with self.assertRaisesRegex(dmg.BuildError, "configure:after-set"):
+            dmg.validate_layout_report(b"OK\tconfigure\t120,120,760,612\t120,120,760,622", "configure")
+        with self.assertRaisesRegex(dmg.BuildError, "configure:after-reopen"):
+            dmg.validate_layout_report(b"OK\tconfigure\t120,120,760,622\t120,120,760,612", "configure")
+
+    def test_malformed_or_wrong_phase_finder_report_is_rejected(self):
+        for output in (b"OK", b"OK\tverify\t120,120,760,622\t120,120,760,622",
+                       b"OK\tconfigure\tn/a\t120,120,760,622", b"OK\tverify\tn/a\t1,2,3",
+                       b"OK\tverify\tn/a\ta,b,c,d"):
+            with self.subTest(output=output), self.assertRaises(dmg.BuildError):
+                dmg.validate_layout_report(output, "verify")
+
+    def test_applescript_and_python_share_exact_requested_rectangle(self):
+        source = (HERE / "dmg-layout.applescript").read_text()
+        rectangle = re.search(r"set expectedBounds to \{([0-9, ]+)\}", source).group(1)
+        self.assertEqual(dmg.read_rectangle(rectangle), dmg.EXPECTED_BOUNDS)
+        self.assertEqual(source.count("set bounds of targetWindow to"), 1)
+        self.assertNotIn("750, 612", source) # no intermediate shrink race
+
+    def test_waits_for_actual_metadata_file_to_stop_changing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            mount = dmg.OwnedMount(Path(directory) / "image.dmg", Path(directory))
+            now = [0.0]
+            writes = [0]
+            def pause(seconds):
+                now[0] += seconds
+                if writes[0] < 3:
+                    writes[0] += 1
+                    (mount.path / ".DS_Store").write_bytes(b"x" * writes[0])
+            dmg.wait_for_store(mount, clock=lambda: now[0], pause=pause)
+            self.assertEqual(writes[0], 3)
+            self.assertGreaterEqual(now[0], 1.0)
+
+    def test_metadata_wait_timeout_reports_configure_phase(self):
+        with tempfile.TemporaryDirectory() as directory:
+            mount = dmg.OwnedMount(Path(directory) / "image.dmg", Path(directory))
+            now = [0.0]
+            def pause(seconds):
+                now[0] += seconds
+            with self.assertRaisesRegex(dmg.BuildError, "configure:DS_Store"):
+                dmg.wait_for_store(mount, timeout=1, clock=lambda: now[0], pause=pause)
 
     def test_command_timeout_becomes_clear_error(self):
         with patch.object(dmg.subprocess, "run", side_effect=dmg.subprocess.TimeoutExpired("osascript", 90)):
