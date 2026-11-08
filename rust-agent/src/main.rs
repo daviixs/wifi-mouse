@@ -62,13 +62,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
         lan_ipv4_addresses(),
         advertisement.is_some(),
     );
-    let stopping = std::cell::Cell::new(false);
-    let mut shutdown: Pin<Box<dyn Future<Output = ()>>> = Box::pin(async {
+    let stopping = std::rc::Rc::new(std::cell::Cell::new(false));
+    let shutdown_stopping = std::rc::Rc::clone(&stopping);
+    let mut shutdown: Pin<Box<dyn Future<Output = ()>>> = Box::pin(async move {
         tokio::select! {
             _ = signal::ctrl_c() => {},
             _ = desktop::control() => {},
         }
-        stopping.set(true);
+        shutdown_stopping.set(true);
     });
 
     loop {
