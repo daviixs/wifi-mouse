@@ -1,3 +1,4 @@
+mod desktop;
 mod diagnostics;
 mod discovery;
 mod input;
@@ -33,6 +34,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .parse::<SocketAddr>()?;
 
     let listener = TcpListener::bind(bind_address).await?;
+    desktop::permission();
     let mouse = Enigo::new(&Settings::default())?;
     let mut mouse = input::MouseController::new(mouse);
 
@@ -53,8 +55,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
     println!("Pressione Ctrl+C para encerrar.");
 
+    // Only the packaged desktop app opts into stdin control and structured events.
+    // EOF shuts down our own helper if the parent exits or crashes.
+    desktop::ready(
+        bind_address.port(),
+        lan_ipv4_addresses(),
+        advertisement.is_some(),
+    );
+    let stopping = std::cell::Cell::new(false);
     let mut shutdown: Pin<Box<dyn Future<Output = ()>>> = Box::pin(async {
-        let _ = signal::ctrl_c().await;
+        tokio::select! {
+            _ = signal::ctrl_c() => {},
+            _ = desktop::control() => {},
+        }
+        stopping.set(true);
     });
 
     loop {
@@ -76,6 +90,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     eprintln!("Conexão {peer} encerrada com erro: {error}");
                 }
                 println!("Conexão {peer} encerrada.");
+                // The same pinned shutdown future also runs inside the connection.
+                // Do not poll it again once it has completed there.
+                if stopping.get() { break; }
             }
         }
     }
@@ -147,7 +164,12 @@ async fn serve_connection(
     let mut config = WebSocketConfig::default();
     config.max_message_size = Some(MAX_COMMAND_BYTES);
     config.max_frame_size = Some(MAX_COMMAND_BYTES);
-    let mut socket = accept_async_with_config(stream, Some(config)).await?;
+    let mut socket = tokio::select! {
+        _ = shutdown.as_mut() => return Ok(()),
+        socket = accept_async_with_config(stream, Some(config)) => socket?,
+    };
+    desktop::emit(serde_json::json!({"event": "client", "connected": true}));
+    let _client_status = desktop::ClientStatus;
     let mut diagnostics = diagnostics::AgentDiagnostics::default();
 
     loop {
