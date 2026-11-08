@@ -290,6 +290,17 @@ macos/scripts/build-app.sh arm64
 
 Encerre o Remote Mouse antigo usando Sair antes de substituir o app. Pelo Finder, preserve/mova a cópia antiga de `/Applications/Remote Mouse.app` para uma pasta de arquivo, depois copie **o bundle inteiro** `macos/dist/arm64/Remote Mouse.app` para `/Applications`. Abra essa cópia pelo Finder, não seu executável interno/Terminal e não de um DMG montado. Não copie apenas um executável ou traduções sobre uma assinatura existente. Autorize essa instalação; a consulta silenciosa deve liberar o painel sem iniciar servidor. Depois teste Iniciar, revogar, conceder novamente e relançar. Se não liberar, copie o diagnóstico do próprio painel e pare antes de tentar outra correção especulativa. Regerar DMG é opcional para este teste; siga a seção de arquivamento se precisar dele.
 
+### Se os testes pararam em caminhos `/var` versus `/private/var`
+
+A correção incremental sobre `e5aff0f` é `remote-mouse-macos-paths-fix.patch`. Os erros recebidos eram fixtures misturando caminhos canônicos com mocks/expectativas crus; `attached_paths` real já normalizava seu resultado. Agora produção e testes comparam identidade real (samefile) ou grafia canônica quando o arquivo não existe mais, sem remover `/private` ou afrouxar ownership. Fixtures usam symlinks reais e recusam outra imagem/montagem.
+
+```bash
+git am ~/Downloads/remote-mouse-macos-paths-fix.patch
+macos/scripts/test.sh && macos/scripts/build-app.sh arm64
+```
+
+A saída `DMG gerado .../tmp.../result.dmg` nos testes é simulada; não confirma que exista um DMG final novo. Continue o teste do bundle instalado descrito acima. Nenhum rebuild de DMG é necessário para verificar aviso opaco, permissão e clique direito.
+
 ## Como enviar os commits ao GitHub
 
 `git am` **já cria um commit para cada patch**; não há necessidade de `git add .` nem de recommitar os mesmos arquivos como outra pessoa. A branch deste checkout é `feat/macos-menubar`; o remote existente `origin` aponta para `https://github.com/daviixs/wifi-mouse.git`. Não foi alterado nem houve push/fetch nesta entrega. No seu checkout confira, antes de enviar:

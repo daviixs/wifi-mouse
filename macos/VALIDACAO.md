@@ -1,5 +1,17 @@
 # Estado da validação desta entrega
 
+## Caminhos equivalentes em fixtures/macOS (base e5aff0f)
+
+**Causa demonstrada pelos três erros:** macOS resolve `/tmp` e `/var` por symlinks para caminhos `/private/...`; testes misturavam retorno canônico com expectativa/mock sem normalização. `image_mounts` real já devolvia resolve(), mas mocks de `attached_paths` devolviam Path cru. Por isso attach comparava listas com grafias diferentes, detach não reconhecia a lista mockada e a expectativa literal `/tmp` falhava. Isso não demonstra falha de uma montagem DMG real nem regressão específica do Python 3.14.
+
+**Patch:** helper único `same_filesystem_path` para fonte da imagem e pontos de montagem: samefile (device/inode) para objetos vivos; apenas ENOENT usa igualdade de resolve() para caminho já desmontado/fixture sem arquivo. PermissionError/loops/I/O não são silenciados. attach ainda exige exatamente um mount no retorno e na imagem própria; detach só age após reconhecer o caminho entre montagens dessa imagem e usa alvo canônico. Pós-detach e diagnósticos usam a mesma regra. Não se remove prefixo `/private`, compara volume-name, aproxima dev-entry ou confunde arquivos de conteúdo igual.
+
+**Fixtures:** diretórios/arquivos reais sob TemporaryDirectory, sem expectativas literais de `/tmp`. Symlink real entre duas grafias prova aceitação do mesmo objeto em attach/detach/filtro de imagem; outro diretório/imagem com bytes iguais é recusado. Testa recusa de desmontar outro mount, imagem alheia ausente do diagnóstico, pós-detach ainda montado por symlink, cardinalidade e erro de stat conservador. hdiutil continua mockado: a linha `DMG gerado: .../result.dmg` é somente saída do teste de orquestração, não imagem real publicada.
+
+**Validação Linux:** 19 testes de orquestração, 17 metadata, 4 CoreFoundation com stubs, 12 resources, checker 48×3 e sintaxe Python/shell/diff. Não foi executado Python/macOS 3.14, Finder, hdiutil ou assinatura nativos. Nenhuma alteração de Rust, UI, app, assinatura ou layout. Retomar no Mac `macos/scripts/test.sh && macos/scripts/build-app.sh arm64`; não é necessário gerar DMG para testar opacidade, Acessibilidade e menu direito da entrega anterior.
+
+As seções abaixo são histórico das entregas anteriores.
+
 ## Painel opaco, permissão verificável e menu direito (base e059be5)
 
 **Defeito visual provado no código:** dashboard permanecia atrás de dimmer 0,65 e card translúcido; por isso texto vazava. Agora só uma árvore existe por vez: permissão ou dashboard. Tela/card de permissão usam RGB opaco, texto de altura livre, CTAs separados, ScrollView com indicador e Sair fora da rolagem. Nenhuma mudança de arte/DMG/mobile.

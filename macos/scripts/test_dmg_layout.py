@@ -24,23 +24,37 @@ class DmgLayoutTests(unittest.TestCase):
         self.assertEqual(dmg.png_dimensions(BACKGROUND), (640, 480))
 
     def test_mount_ownership_ignores_same_volume_name_and_parent_devices(self):
-        image = Path("/tmp/private-layout/image.dmg")
-        info = {"images": [
-            {"image-path": str(image), "system-entities": [
-                {"dev-entry": "/dev/disk7"}, {"mount-point": "/tmp/private-layout/mount-rw"}]},
-            {"image-path": "/Users/example/unrelated.dmg", "system-entities": [
-                {"mount-point": "/Volumes/Remote Mouse"}]},
-        ]}
-        self.assertEqual(dmg.image_mounts(info, image), [Path("/tmp/private-layout/mount-rw")])
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            image = root / "image.dmg"
+            image.write_bytes(b"our image")
+            other_image = root / "foreign.dmg"
+            other_image.write_bytes(b"our image")  # content/name is not ownership
+            own = root / "own" / "Remote Mouse"
+            other = root / "foreign" / "Remote Mouse"
+            own.mkdir(parents=True)
+            other.mkdir(parents=True)
+            info = {"images": [
+                {"image-path": str(image), "system-entities": [
+                    {"dev-entry": "/dev/disk7"}, {"mount-point": str(own)}]},
+                {"image-path": str(other_image), "system-entities": [
+                    {"dev-entry": "/dev/disk70", "mount-point": str(other)}]},
+            ]}
+            self.assertEqual(dmg.image_mounts(info, image), [own])
 
     def test_detach_only_exact_owned_mount(self):
-        mount = dmg.OwnedMount(Path("/tmp/private/image.dmg"), Path("/tmp/private/mount"))
-        with patch.object(dmg, "attached_paths", side_effect=[[mount.path], []]), patch.object(dmg, "run") as run:
-            dmg.detach(mount)
-            run.assert_called_once_with(["/usr/bin/hdiutil", "detach", mount.path], timeout=90)
-        with patch.object(dmg, "attached_paths", return_value=[Path("/Volumes/Remote Mouse")]), patch.object(dmg, "run") as run:
-            dmg.detach(mount)
-            run.assert_not_called()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            mount = dmg.OwnedMount(root / "image.dmg", root / "mount")
+            mount.path.mkdir()
+            other = root / "foreign"
+            other.mkdir()
+            with patch.object(dmg, "attached_paths", side_effect=[[mount.path], []]), patch.object(dmg, "run") as run:
+                dmg.detach(mount)
+                run.assert_called_once_with(["/usr/bin/hdiutil", "detach", mount.path.resolve()], timeout=90)
+            with patch.object(dmg, "attached_paths", return_value=[other]), patch.object(dmg, "run") as run:
+                dmg.detach(mount)
+                run.assert_not_called()
 
     def test_refuses_existing_output_without_touching_it(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -173,6 +187,97 @@ class DmgLayoutTests(unittest.TestCase):
                 self.assertNotIn("-mountroot", args)
                 self.assertNotIn("-mountrandom", args)
                 self.assertFalse(mount.path.exists())  # our code never mkdirs the mount
+
+    def test_real_symlink_spelling_is_accepted_by_attach_and_detach(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            real = root / "real"
+            real.mkdir()
+            alias = root / "alias"
+            alias.symlink_to(real, target_is_directory=True)
+            image = real / "image.dmg"
+            image.write_bytes(b"own image")
+            mount = dmg.OwnedMount(alias / "image.dmg", alias / "volume")
+            canonical = real / "volume"
+
+            def auto_mount(arguments, timeout=90):
+                canonical.mkdir()  # actual filesystem, but Apple command is mocked
+                return plistlib.dumps({"system-entities": [{"mount-point": str(canonical)}]})
+
+            with patch.object(dmg, "run", side_effect=auto_mount), patch.object(dmg, "attached_paths", return_value=[mount.path]):
+                dmg.attach(mount, False)
+            self.assertTrue(mount.path.samefile(canonical))
+            self.assertTrue(dmg.same_filesystem_path(mount.path, canonical))
+            info = {"images": [{"image-path": str(image), "system-entities": [{"mount-point": str(canonical)}]}]}
+            self.assertEqual(dmg.image_mounts(info, mount.image), [canonical])
+            with patch.object(dmg, "attached_paths", side_effect=[[mount.path], []]), patch.object(dmg, "run") as run:
+                dmg.detach(dmg.OwnedMount(image, canonical))
+                run.assert_called_once_with(["/usr/bin/hdiutil", "detach", canonical], timeout=90)
+
+    def test_symlink_does_not_make_another_mount_or_image_owned(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            real = root / "real"
+            real.mkdir()
+            alias = root / "alias"
+            alias.symlink_to(real, target_is_directory=True)
+            own = real / "our-volume"
+            other = real / "foreign-volume"
+            other.mkdir()
+            image = real / "our-image.dmg"
+            foreign = real / "foreign-image.dmg"
+            image.write_bytes(b"same bytes")
+            foreign.write_bytes(b"same bytes")
+            mount = dmg.OwnedMount(image, alias / "our-volume")
+            reply = plistlib.dumps({"system-entities": [{"mount-point": str(other)}]})
+            with patch.object(dmg, "run", return_value=reply), patch.object(dmg, "attached_paths", return_value=[other]):
+                with self.assertRaisesRegex(dmg.BuildError, "mount canônico único"):
+                    dmg.attach(mount, False)
+            own.mkdir()  # two live directories: actual inode comparison, not fallback
+            with patch.object(dmg, "attached_paths", return_value=[other]), patch.object(dmg, "run") as run:
+                dmg.detach(mount)
+                run.assert_not_called()
+            self.assertFalse(dmg.same_filesystem_path(own, other))
+            info = {"images": [{"image-path": str(foreign), "system-entities": [{"mount-point": str(own)}]}]}
+            self.assertEqual(dmg.image_mounts(info, alias / "our-image.dmg"), [])
+            with patch.object(dmg, "run", return_value=plistlib.dumps(info)):
+                self.assertEqual(dmg.mount_report(mount)["entities"], [])
+            # Even if a foreign image reports our expected mount path, its
+            # different file identity must prevent detach through the real filter.
+            with patch.object(dmg, "run", return_value=plistlib.dumps(info)) as run:
+                dmg.detach(mount)
+                run.assert_called_once_with(["/usr/bin/hdiutil", "info", "-plist"])
+
+    def test_detach_postcheck_detects_an_owned_mount_through_its_symlink(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            real = root / "real"
+            real.mkdir()
+            alias = root / "alias"
+            alias.symlink_to(real, target_is_directory=True)
+            mount = dmg.OwnedMount(root / "image.dmg", real)
+            with patch.object(dmg, "attached_paths", return_value=[alias]), patch.object(dmg, "run") as run:
+                with self.assertRaisesRegex(dmg.BuildError, "Volume continua montado"):
+                    dmg.detach(mount)
+                run.assert_called_once_with(["/usr/bin/hdiutil", "detach", real], timeout=90)
+
+    def test_attach_still_requires_exactly_one_owned_mount(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            mount = dmg.OwnedMount(root / "image.dmg", root / "planned")
+            reply = plistlib.dumps({"system-entities": [{"mount-point": str(mount.path)}]})
+            with patch.object(dmg, "run", return_value=reply), patch.object(dmg, "attached_paths", return_value=[mount.path, mount.path]):
+                with self.assertRaisesRegex(dmg.BuildError, "mount canônico único"):
+                    dmg.attach(mount, False)
+
+    def test_path_identity_does_not_strip_private_or_swallow_stat_errors(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            # This is a literal folder named private, NOT an OS path alias.
+            self.assertFalse(dmg.same_filesystem_path(root / "private" / "volume", root / "volume"))
+            with patch.object(Path, "samefile", side_effect=PermissionError("denied")):
+                with self.assertRaises(PermissionError):
+                    dmg.same_filesystem_path(root, root)
 
     def test_attach_never_overwrites_or_unmounts_an_existing_path(self):
         with tempfile.TemporaryDirectory() as directory:
