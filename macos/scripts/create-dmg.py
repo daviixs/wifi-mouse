@@ -3,6 +3,7 @@
 Requires a logged-in macOS desktop and permission for the terminal to automate Finder.
 """
 import argparse
+import json
 from dataclasses import dataclass
 import os
 from pathlib import Path
@@ -96,40 +97,87 @@ def read_rectangle(text):
     return rectangle
 
 
-def require_dimensions(rectangle, phase, report):
-    width, height = rectangle[2] - rectangle[0], rectangle[3] - rectangle[1]
-    if (width, height) != EXPECTED_SIZE:
-        raise BuildError(f"Finder[{phase}] dimensão incorreta: atual={width}x{height}, esperado=640x502 "
-                         f"nas coordenadas bounds; arte nominal=640x480. {report}. "
-                         "Não foi aplicada compensação presumida de título/chrome. Copie este diagnóstico completo.")
+EXPECTED_POSITIONS = {"app": (170, 240), "applications": (470, 240)}
+EXPECTED_OPTIONS = {
+    "view_icon": 1, "arrangement_none": 1, "icon_size": 72, "text_size": 12,
+    "toolbar": 0, "statusbar": 0, "sidebar": 0, "labels_bottom": 1,
+    "item_info": 0, "background": 1,
+}
+SNAPSHOT_KEYS = {"bounds", "app", "applications", "arrangement_text", "folder_app", "folder_applications"} | set(EXPECTED_OPTIONS)
+
+
+def read_point(text):
+    try:
+        point = tuple(int(value) for value in text.split(","))
+    except ValueError as error:
+        raise BuildError(f"Posição inválida do Finder: {text!r}") from error
+    if len(point) != 2:
+        raise BuildError(f"Posição do Finder precisa de duas coordenadas: {text!r}")
+    return point
+
+
+def parse_snapshot(text):
+    result = {}
+    for field in text.split(";"):
+        key, separator, value = field.partition("=")
+        if not separator or key in result:
+            raise BuildError(f"Snapshot Finder inválido/duplicado: {text!r}")
+        result[key] = value
+    if set(result) != SNAPSHOT_KEYS:
+        raise BuildError(f"Snapshot Finder incompleto: {text!r}")
+    result["bounds"] = read_rectangle(result["bounds"])
+    for key in ("app", "applications", "folder_app", "folder_applications"):
+        result[key] = None if result[key] == "n/a" else read_point(result[key])
+    for key in EXPECTED_OPTIONS:
+        try:
+            result[key] = int(result[key])
+        except ValueError as error:
+            raise BuildError(f"Opção Finder inválida: {key}={result[key]!r}") from error
+    return result
+
+
+def snapshot_mismatches(snapshot, phase):
+    failures = []
+    rectangle = snapshot["bounds"]
+    size = (rectangle[2] - rectangle[0], rectangle[3] - rectangle[1])
+    if size != EXPECTED_SIZE:
+        failures.append(f"{phase}: dimensão atual={size[0]}x{size[1]}, esperado=640x502 nas coordenadas bounds")
+    for key, expected in EXPECTED_POSITIONS.items():
+        if snapshot[key] != expected:
+            failures.append(f"{phase}: posição {key} atual={snapshot[key]}, esperado={expected}")
+    for key, expected in EXPECTED_OPTIONS.items():
+        if snapshot[key] != expected:
+            failures.append(f"{phase}: {key} atual={snapshot[key]}, esperado={expected}")
+    return failures
 
 
 def validate_layout_report(output, mode):
     fields = output.decode(errors="replace").strip().split("\t")
-    if len(fields) != 4 or fields[:2] != ["OK", mode]:
-        raise BuildError(f"Finder[{mode}] relatório inválido: {output!r}")
-    after_set = None if fields[2] == "n/a" else read_rectangle(fields[2])
-    after_reopen = read_rectangle(fields[3])
-    report = (f"pedido={EXPECTED_BOUNDS}; após definir={after_set}; após reabrir={after_reopen}; "
-              "toolbar/sidebar/status ocultos e ícones/fundo verificados; origem de tela pode mudar")
-    if mode == "configure":
-        if after_set is None:
-            raise BuildError(f"Finder[configure] leitura após definir ausente; {report}")
-        require_dimensions(after_set, "configure:after-set", report)
-    elif mode != "verify" or after_set is not None:
+    if len(fields) != 5 or fields[:3] != ["OK", "v2", mode] or mode not in ("configure", "verify"):
+        raise BuildError(f"Finder[{mode}] relatório v2 inválido: {output!r}")
+    after_set = None if fields[3] == "n/a" else parse_snapshot(fields[3])
+    after_reopen = parse_snapshot(fields[4])
+    report = (f"pedido bounds={EXPECTED_BOUNDS}, app={EXPECTED_POSITIONS['app']}, Applications={EXPECTED_POSITIONS['applications']}; "
+              f"após definir={json.dumps(after_set, ensure_ascii=False, sort_keys=True)}; "
+              f"após reabrir={json.dumps(after_reopen, ensure_ascii=False, sort_keys=True)}; origem de tela pode mudar")
+    if (mode == "configure" and after_set is None) or (mode == "verify" and after_set is not None):
         raise BuildError(f"Finder[{mode}] fase/leitura inesperada; {report}")
-    require_dimensions(after_reopen, mode + ":after-reopen", report)
-    # A translated rectangle is not a resized window. Never demand a fixed screen
-    # origin after remount, and never accept a width/height mismatch as a tolerance.
+    failures = []
+    if after_set is not None:
+        failures.extend(snapshot_mismatches(after_set, "configure:after-set"))
+    failures.extend(snapshot_mismatches(after_reopen, mode + ":after-reopen"))
+    if failures:
+        raise BuildError("Layout divergente: " + " | ".join(failures) + ". " + report
+                         + ". Sem tolerância de posição/tamanho nem compensação presumida de chrome. Copie este diagnóstico completo.")
     return report
 
 
 def finder_layout(mode, mount, script):
     try:
         result = run(["/usr/bin/osascript", script, mode, mount.path], timeout=90)
+        report = validate_layout_report(result, mode)
     except BuildError as error:
         raise BuildError(f"Fase Finder={mode}, mount={mount.path}: {error}") from error
-    report = validate_layout_report(result, mode)
     print(f"Finder[{mode}] {report}")
 
 
@@ -208,6 +256,7 @@ def build(app, background, output, script):
         os.link(compressed, output)
         print(f"DMG gerado: {output} (layout verificado; não implica notarização)")
     finally:
+        primary_error = sys.exc_info()[1]
         cleanup_errors = []
         for mount in reversed(owned):
             try:
@@ -219,8 +268,9 @@ def build(app, background, output, script):
                 cleanup_errors.append(str(error))
         if cleanup_errors:
             # Never recurse/delete a workspace while any of its images may be mounted.
+            original = f" Falha original: {primary_error}." if primary_error is not None else ""
             raise BuildError("Não foi possível confirmar desmontagem. Temporários preservados em "
-                             f"{work}. " + "; ".join(cleanup_errors))
+                             f"{work}. " + "; ".join(cleanup_errors) + original)
         shutil.rmtree(work) # only our unique mkdtemp, after confirming images are detached
 
 

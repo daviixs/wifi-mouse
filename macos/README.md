@@ -144,13 +144,37 @@ O macOS pode pedir autorização para o Terminal/host de build controlar o **Fin
 
 Limpeza verifica o caminho da imagem e o mountpoint específico criados por esta execução; nunca ejeta por nome de volume, não usa unmount forçado e não toca discos alheios. Se não puder confirmar a desmontagem, preserva o workspace indicado no erro em vez de remover uma pasta que ainda pode conter volume montado. Resolva essa montagem antes de remover seus temporários manualmente.
 
+### Diagnóstico de ícones e opções de visualização
+
+O log real recebido do Mac confirmou bounds corretos após definir/reabrir, mas a mensagem antiga “posição do app incorreta” **não continha nenhuma coordenada dos ícones**. Não é possível provar a causa nativa daquele erro só com os bounds.
+
+Constatado no código anterior: posições eram escritas na pasta `volumeRoot` **antes** de definir os bounds finais; a validação lia a pasta, fazia comparação de lista dentro de `tell Finder` e abortava no primeiro erro, sem mostrar o valor lido. A propriedade `position` já era a propriedade correta: significa posição dentro da janela pai. `desktop position` é outra propriedade, exclusiva da posição no desktop; **não é a correção** e não se deve somar a origem de tela aos pontos dos ícones. A diferença entre `item of volumeRoot` e `item of targetWindow` não é uma causa demonstrada: normalmente ambos podem identificar o mesmo item.
+
+O incremento torna o contexto explícito: opções/`not arranged` → bounds finais estáveis → `position of item ... of targetWindow` → update → snapshot estável → fechar/reabrir → outro snapshot. Não muda arte, bounds, ícones **(170,240)/(470,240)** nem tamanhos 72/12; não tenta novas coordenadas, não reaplica ícones após reabrir e não escreve nenhuma posição no desktop. O modo `verify` somente lê o layout da imagem final.
+
+Cada snapshot agora contém bounds, posições de **ambos** os ícones, visualização, arrangement (flag e nome), tamanhos, barras/sidebar, labels, informação extra e correspondência do fundo com o volume. Há até 25 leituras, pedindo quatro snapshots consecutivos iguais; isso espera estabilidade, **não** aceita um resultado errado. O seletor antigo da pasta é lido adicionalmente em `folder_app`/`folder_applications`, apenas para comparação diagnóstica; esses campos não dirigem escrita, validação nem estabilidade.
+
+Os valores concretos são serializados para o protocolo v2 e comparados numericamente em Python, fora da terminologia/referências de objetos do Finder. Não se afirma que comparação de listas ou coerção fosse a causa original. Todas as divergências legíveis são agregadas em **um único erro**, incluindo os dois snapshots e a fase, em vez de descobrir um assert novo a cada tentativa. Uma opção ilegível que impeça a coleta ainda gera erro nativo identificado pela fase. Se a desmontagem também falhar, o diagnóstico da limpeza mantém a falha original e preserva os temporários. Tamanho/posições/opções continuam estritos, sem tolerância geométrica.
+
+Como interpretar um eventual novo diagnóstico:
+
+- Posição já errada em `configure:after-set`: o desvio ocorreu antes de fechar, não é demonstravelmente uma falha exclusiva de persistência.
+- Posição correta no setter e diferente em `configure:after-reopen`: alteração ao reabrir; ainda pode ser persistência ou adaptação da janela/canvas, não se presume `.DS_Store` corrompido.
+- Diferença entre `app` e `folder_app`: evidencia diferença entre seletores naquela execução; só as coordenadas do item da janela aberta validam o layout.
+- `verify:after-reopen`: diferença na remontagem somente leitura; nenhuma correção é reaplicada para esconder a falha.
+- `arrangement_none=0`: consultar `arrangement_text` para distinguir snap-to-grid/ordenação de posições livres. `1` significa a opção esperada, `0` significa falso; demais campos numéricos mostram os valores reais.
+
+**Se falhar novamente, basta copiar o erro completo com ambos os snapshots** — não é preciso recompilar o app nem experimentar tolerâncias. Este é um ajuste de ordem/contexto e diagnóstico, **não uma causa macOS provada nem garantia de conclusão do build**. Finder/AppleScript não foram executados na box Linux.
+
+Referências públicas consultadas: [dicionário Finder — position/desktop position/arrangement](https://github.com/ali-rantakari/trash/blob/master/Finder.sdef), [template create-dmg — container window, bounds antes de posicionar](https://github.com/create-dmg/create-dmg/blob/master/support/template.applescript). São referências de semântica/exemplos, não um teste do Mac do proprietário.
+
 ### Diagnóstico de tamanho e persistência
 
 O erro antigo “tamanho inicial não persistido” comparava os **quatro números** de bounds. Portanto, podia acusar tamanho errado quando apenas x/y mudavam ao reabrir/remontar em outra posição de tela. Esse defeito de classificação é verificável no código; não prova que tenha sido a diferença observada no Mac, porque o erro antigo não registrava os números reais.
 
 A correção separa origem de **largura/altura**, sem tolerância: o contrato atual continua exigindo exatamente **640×502 nas coordenadas retornadas por bounds**. Um retângulo transladado de mesmo tamanho passa; diferenças de um ponto ou de 22 pontos **não** são aceitas automaticamente. Também não se supõe que “is not” de AppleScript esteja quebrado: o cálculo numérico/testável agora ocorre em Python sobre coordenadas primitivas retornadas pelo Finder.
 
-O tamanho é definido **uma vez, depois** de opções/barras/fundo/ícones. Foi removida a sequência intermediária de encolher dez pontos e aumentar novamente. São coletadas leituras estáveis após o setter e após fechar/reabrir; a remontagem somente leitura continua apenas verificando, nunca corrigindo configurações. O script não altera preferências globais nem tenta corrigir chrome por números mágicos.
+O tamanho é definido **uma vez, depois** de opções/barras/fundo e **antes** das posições dos ícones. Foi removida a sequência intermediária de encolher dez pontos e aumentar novamente. São coletadas leituras estáveis após o setter e após fechar/reabrir; a remontagem somente leitura continua apenas verificando, nunca corrigindo configurações. O script não altera preferências globais nem tenta corrigir chrome por números mágicos.
 
 O log contém `pedido`, `após definir`, `após reabrir` e a fase:
 

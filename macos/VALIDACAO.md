@@ -1,5 +1,22 @@
 # Estado da validação desta entrega
 
+## Correção/diagnóstico incremental: posições dos ícones
+
+Base incremental: último bounds-fix `786c0f0`. O log nativo fornecido confirma bounds `{120,120,760,622}` após definir/reabrir; **não registra posições dos ícones**. Portanto não existe evidência suficiente para atribuir definitivamente a falha a coerção, seletor de pasta/janela, canvas, ordenação ou gravação de `.DS_Store`.
+
+Constatado no código: posições eram definidas antes dos bounds finais, pelo seletor da pasta; a comparação de lista no Finder não exibia o valor e abortava no primeiro erro. `position` é a propriedade apropriada para ícones em janela, não `desktop position`. A ordem frágil foi corrigida para opções → geometria estável → posições explícitas no `targetWindow`, mantendo pontos/arte/tamanhos. A diferença entre seletores não é tratada como causa provada.
+
+O protocolo v2 retorna snapshots completos após o setter e após reabrir, com ambos os ícones e opções visuais. Python valida valores numéricos estritos e agrega divergências de todas as propriedades em uma mensagem; não se removeu o gate de posição nem se introduziu tolerância. Foram adicionadas verificações de labels/info. O seletor de pasta antigo é apenas diagnóstico opcional, fora do critério de estabilidade. Continuidade de `.DS_Store`, montagem somente leitura, assinaturas, publicação sem sobrescrever e limpeza segura preservada. Se a desmontagem também falhar, o erro de limpeza preserva agora a mensagem original do layout, em vez de ocultá-la.
+
+Executado na box Linux:
+
+- **25 testes portáveis de DMG passaram**: validadores reais, coordenadas e opções exatas, múltiplas divergências/fases simultâneas, protocolo incompleto/duplicado rejeitado, seletor de pasta não substitui leitura da janela, metadados reais em temporários, guardas de fluxo/limpeza. Testes de orquestração Apple têm mocks; testes de ordem no source são estáticos.
+- **12 testes de resources** e checker de **45 chaves × 3 idiomas** passaram.
+- Sintaxe shell, bytecode Python e `git diff --check`: passaram.
+- `npm run lint`, `npm run typecheck` e `npm run test:motion`: passaram (**39 testes**).
+
+**Não executado:** compilação AppleScript, Finder, escrita/leitura nativa de `.DS_Store`, build/remontagem de DMG ou comandos no Mac. Não se afirma que o problema nativo esteja reproduzido/corrigido definitivamente. Se persistir, o novo erro captura as coordenadas/opções específicas necessárias, em vez de provocar outra tentativa especulativa. App Swift/Rust/mobile e assets não foram alterados; basta reconstruir o DMG com o `.app` existente.
+
 ## Correção/diagnóstico incremental: bounds do Finder
 
 Evidência do código: a verificação anterior comparava o retângulo inteiro e chamava qualquer diferença de “tamanho inicial não persistido”, sem fase nem coordenadas. Isso confunde reposicionamento com redimensionamento. Não há evidência dos bounds reais do Mac no erro recebido, logo não se atribui a falha definitivamente a reposicionamento, título/chrome ou `.DS_Store`.
