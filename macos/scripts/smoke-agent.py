@@ -3,6 +3,7 @@
 import json
 import os
 from pathlib import Path
+import plistlib
 import selectors
 import socket
 import subprocess
@@ -55,9 +56,31 @@ def finish(child):
 def main():
     if sys.platform != "darwin":
         raise SystemExit("Erro: execute no macOS com Acessibilidade autorizada.")
-    if len(sys.argv) != 2:
-        raise SystemExit('Uso: python3 macos/scripts/smoke-agent.py "caminho/Remote Mouse.app"')
-    binary = Path(sys.argv[1]).resolve() / "Contents/MacOS/remote-mouse-agent"
+    if len(sys.argv) not in (2, 3) or (len(sys.argv) == 3 and sys.argv[2] != "--permission-only"):
+        raise SystemExit('Uso: python3 macos/scripts/smoke-agent.py "caminho/Remote Mouse.app" [--permission-only]')
+    app = Path(sys.argv[1]).resolve()
+    binary = app / "Contents/MacOS/remote-mouse-agent"
+    resources = app / "Contents/Resources"
+    with (app / "Contents/Info.plist").open("rb") as file:
+        info = plistlib.load(file)
+    assert set(info["CFBundleLocalizations"]) == {"pt-BR", "en", "es"}
+    for language in ("pt-BR", "en", "es"):
+        bundle = resources / "RemoteMouse_RemoteMouse.bundle"
+        assert any((bundle / f"{code}.lproj/Localizable.strings").is_file()
+                   for code in (language, language.lower())), f"Missing app translation: {language}"
+        assert (resources / f"{language}.lproj/InfoPlist.strings").is_file()
+
+    # Invalid bind proves check-only returns before server configuration/startup.
+    check = subprocess.run([str(binary), "--check-accessibility"],
+                           env=dict(os.environ, REMOTE_MOUSE_BIND="not-a-socket-address"),
+                           capture_output=True, timeout=10, check=True, text=True)
+    lines = check.stdout.strip().splitlines()
+    assert len(lines) == 1 and lines[0].startswith("REMOTE_MOUSE_EVENT ")
+    permission = json.loads(lines[0][len("REMOTE_MOUSE_EVENT "):])
+    assert permission["event"] == "permission" and isinstance(permission["accessibility"], bool)
+    if len(sys.argv) == 3:
+        print("OK: check-only sem servidor/input; accessibility =", permission["accessibility"])
+        return
     # OS picks a currently free port; the helper still owns bind and reports conflicts.
     with socket.socket() as reservation:
         reservation.bind(("127.0.0.1", 0))

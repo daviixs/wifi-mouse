@@ -30,6 +30,14 @@ cargo build --locked --release --manifest-path "$ROOT/rust-agent/Cargo.toml" --t
 swift build --package-path "$ROOT/macos/RemoteMouse" --configuration release --triple "$TRIPLE"
 BIN="$(swift build --package-path "$ROOT/macos/RemoteMouse" --configuration release --triple "$TRIPLE" --show-bin-path)"
 cp "$BIN/RemoteMouse" "$BUNDLE/Contents/MacOS/RemoteMouse"
+RESOURCES="$BIN/RemoteMouse_RemoteMouse.bundle"
+[[ -d "$RESOURCES" ]] || { echo "Erro: bundle de traduções SwiftPM ausente: $RESOURCES" >&2; exit 1; }
+ditto "$RESOURCES" "$BUNDLE/Contents/Resources/RemoteMouse_RemoteMouse.bundle"
+for language in pt-BR en es; do
+  language_dir="$(printf '%s' "$language" | /usr/bin/tr '[:upper:]' '[:lower:]')"
+  [[ -f "$RESOURCES/$language_dir.lproj/Localizable.strings" || -f "$RESOURCES/$language.lproj/Localizable.strings" ]] || { echo "Erro: tradução ausente: $language" >&2; exit 1; }
+  ditto "$ROOT/macos/Resources/$language.lproj" "$BUNDLE/Contents/Resources/$language.lproj"
+done
 cp "$ROOT/rust-agent/target/$RUST_TARGET/release/remote-mouse-agent" "$BUNDLE/Contents/MacOS/remote-mouse-agent"
 cp "$ROOT/macos/Resources/Info.plist" "$BUNDLE/Contents/Info.plist"
 printf 'APPL????' > "$BUNDLE/Contents/PkgInfo"

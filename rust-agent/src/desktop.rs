@@ -20,23 +20,58 @@ pub fn emit(value: Value) {
 }
 
 #[cfg(target_os = "macos")]
-fn accessibility() -> bool {
-    // Ask about the process actually injecting input, not only the Swift UI.
+fn accessibility(prompt: bool) -> bool {
+    use core_foundation::{
+        base::TCFType, boolean::CFBoolean, dictionary::CFDictionary, string::CFString,
+    };
     #[link(name = "ApplicationServices", kind = "framework")]
     unsafe extern "C" {
+        static kAXTrustedCheckOptionPrompt: *const std::ffi::c_void;
         fn AXIsProcessTrustedWithOptions(options: *const std::ffi::c_void) -> u8;
     }
-    unsafe { AXIsProcessTrustedWithOptions(std::ptr::null()) != 0 }
+    // Get-rule retains the framework-owned constant; do not release Apple's reference.
+    let key = unsafe { CFString::wrap_under_get_rule(kAXTrustedCheckOptionPrompt.cast()) };
+    let value = if prompt {
+        CFBoolean::true_value()
+    } else {
+        CFBoolean::false_value()
+    };
+    let options = CFDictionary::from_CFType_pairs(&[(key, value)]);
+    unsafe { AXIsProcessTrustedWithOptions(options.as_concrete_TypeRef().cast()) != 0 }
+}
+
+/// Must run before binding, Enigo initialization or mDNS. Even denied checks exit 0:
+/// authorization is the JSON boolean, whereas process failure means unknown.
+pub fn check_permission_mode() -> bool {
+    let args: Vec<String> = env::args().skip(1).collect();
+    let Some(prompt) = permission_request(&args) else {
+        return false;
+    };
+    println!(
+        "REMOTE_MOUSE_EVENT {}",
+        json!({"event": "permission", "accessibility": accessibility(prompt)})
+    );
+    true
+}
+
+fn permission_request(args: &[String]) -> Option<bool> {
+    if args.iter().any(|arg| arg == "--request-accessibility") {
+        Some(true)
+    } else if args.iter().any(|arg| arg == "--check-accessibility") {
+        Some(false)
+    } else {
+        None
+    }
 }
 
 #[cfg(not(target_os = "macos"))]
-fn accessibility() -> bool {
+fn accessibility(_prompt: bool) -> bool {
     true
 }
 
 pub fn permission() {
     emit(
-        json!({"event": "permission", "accessibility": accessibility(),
+        json!({"event": "permission", "accessibility": accessibility(false),
                 "addresses": crate::lan_ipv4_addresses()}),
     );
 }
@@ -45,7 +80,7 @@ pub fn ready(port: u16, addresses: Vec<Ipv4Addr>, mdns: bool) {
     emit(json!({
         "event": "ready", "port": port, "addresses": addresses,
         "name": crate::discovery::computer_name(), "mdns": mdns,
-        "accessibility": accessibility()
+        "accessibility": accessibility(false)
     }));
 }
 
@@ -133,5 +168,21 @@ mod tests {
             receiver.try_recv(),
             Err(tokio::sync::mpsc::error::TryRecvError::Disconnected)
         ));
+    }
+    #[test]
+    fn permission_modes_are_explicit_and_silent_by_default() {
+        assert_eq!(permission_request(&[]), None);
+        assert_eq!(
+            permission_request(&["--check-accessibility".into()]),
+            Some(false)
+        );
+        assert_eq!(
+            permission_request(&["--request-accessibility".into()]),
+            Some(true)
+        );
+        assert_eq!(
+            permission_request(&["--check-accessibility-extra".into()]),
+            None
+        );
     }
 }

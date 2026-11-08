@@ -1,5 +1,24 @@
 # Estado da validação desta entrega
 
+## Incremento: overlay de Acessibilidade e idiomas
+
+Implementado após o fix de ownership `efa5daa`: bloqueio fail-closed até confirmação real do helper, consultas curtas sem servidor, concessão/revogação automáticas, parada do próprio servidor na perda da autorização, CTA de ajustes/Finder e saída sempre acessíveis; pt-BR/en/es automáticos, resources SwiftPM explicitamente copiados para o bundle e `InfoPlist.strings` localizados; rolagem preservada sem indicadores.
+
+Executado nesta box Linux:
+
+- `cargo check --locked --all-targets --target aarch64-apple-darwin`: passou no código real completo e testes, incluindo CoreFoundation/FFI de permissão. É typecheck do target Apple, **não** link/execução macOS.
+- `cargo fmt --check`: passou.
+- Harness portátil externo: **17 testes passaram**, incluindo modos explícitos de consulta e o teste do bloco real de shutdown do fix anterior. Não testa autorização Apple real.
+- `python3 macos/scripts/check-resources.py`: passou; **45 chaves × 3 idiomas**, placeholders, descrições de privacidade, metadados, declaração de cópia do bundle e posição do guard check-only antes de bind/Enigo.
+- Sintaxe Python e shell dos scripts: passou.
+- `npm run lint`, `npm run typecheck`, `npm test` e `npm run test:motion`: passaram (39 testes em cada execução da suíte).
+
+Novos testes XCTest de idioma/resources e transições do bloqueio foram escritos, mas **não executados** aqui: SwiftUI/AppKit/Swift e SDK macOS não estão disponíveis. Não foi gerado .app/DMG nem testada autorização/TCC/VoiceOver/posicionamento real do aviso. Ver checklist atualizado no README. O smoke test macOS recebeu `--permission-only`, utilizável mesmo quando a permissão ainda está negada, sem servidor/input.
+
+O build deve ser validado no Mac instalado em /Applications: confirmar atribuição TCC ao app/helper, concessão/revogação em execução, timeout e saída, idiomas em cada preferência, bundle movido sem .build e acesso por teclado/leitor de tela. Não houve comandos no Mac do proprietário nem alteração do mobile/ios/android.
+
+## Histórico da primeira entrega
+
 ## Implementado
 
 Shell SwiftUI/AppKit de barra de menus, helper Rust empacotado, eventos reais de servidor/WebSocket/permissão, controle por pipe privado, encerramento por EOF, build por arquitetura, `.app`, DMG, documentação de assinatura/notarização e testes.

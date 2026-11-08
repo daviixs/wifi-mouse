@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 private enum Theme {
@@ -17,7 +18,28 @@ struct ServerPanel: View {
     @ObservedObject var model: AgentController
 
     var body: some View {
-        ScrollView {
+        ZStack {
+            content
+                .disabled(model.permissionBlocked)
+                .allowsHitTesting(!model.permissionBlocked)
+                .accessibilityHidden(model.permissionBlocked)
+            if model.permissionBlocked { permissionOverlay }
+        }
+        .frame(width: 380, height: 720)
+        .background(LinearGradient(colors: [Color(red: 0.04, green: 0.10, blue: 0.42),
+                                             Color(red: 0.03, green: 0.06, blue: 0.27),
+                                             Color(red: 0.02, green: 0.04, blue: 0.17)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing))
+        .foregroundStyle(Theme.text)
+        .environment(\.colorScheme, .dark)
+        .onAppear { model.refreshPermission() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            model.refreshPermission()
+        }
+    }
+
+    private var content: some View {
+        ScrollView(showsIndicators: false) {
             VStack(spacing: 18) {
                 header
                 illustration
@@ -31,15 +53,15 @@ struct ServerPanel: View {
                 permissionCard
                 HStack(spacing: 10) {
                     Button(action: model.copyAddress) {
-                        Label(model.copied ? "Copiado!" : "Copiar endereço", systemImage: model.copied ? "checkmark" : "doc.on.doc")
+                        Label(L10n.text(model.copied ? "button.copied" : "button.copy"), systemImage: model.copied ? "checkmark" : "doc.on.doc")
                             .frame(maxWidth: .infinity)
                     }
                     .disabled(model.address == nil || model.phase != .running)
                     Button(action: model.openNetworkSettings) {
                         Image(systemName: "wifi").frame(width: 28)
                     }
-                    .help("Abrir ajustes de rede")
-                    .accessibilityLabel("Abrir ajustes de rede")
+                    .help(L10n.text("button.network"))
+                    .accessibilityLabel(L10n.text("button.network"))
                 }
                 .buttonStyle(PanelButtonStyle())
                 Button {
@@ -48,33 +70,25 @@ struct ServerPanel: View {
                     HStack(spacing: 8) {
                         if model.busy { ProgressView().controlSize(.small) }
                         Image(systemName: model.phase == .running ? "stop.circle" : "power")
-                        Text(model.phase == .running ? "Parar servidor" : "Iniciar servidor")
+                        Text(L10n.text(model.phase == .running ? "button.stop" : "button.start"))
                             .fontWeight(.semibold)
                     }.frame(maxWidth: .infinity)
                 }
                 .buttonStyle(PanelButtonStyle(primary: true))
                 .disabled(model.busy)
-                Text("No celular, use a mesma rede Wi-Fi. O Mac aparece automaticamente; se não aparecer, digite o IP acima. Use apenas redes confiáveis.")
+                Text(L10n.text("connection.help"))
                     .font(.system(size: 11)).foregroundStyle(Theme.muted)
                     .multilineTextAlignment(.center)
                 HStack {
                     Text("REMOTE MOUSE · macOS").font(.system(size: 9, weight: .medium)).tracking(1)
                     Spacer()
-                    Button("Sair") { NSApplication.shared.terminate(nil) }
+                    Button(L10n.text("button.quit")) { NSApplication.shared.terminate(nil) }
                         .buttonStyle(.plain).keyboardShortcut("q")
-                        .accessibilityHint("Para o servidor e encerra o aplicativo")
+                        .accessibilityHint(L10n.text("hint.quit"))
                 }.foregroundStyle(Theme.muted)
             }
             .padding(24)
         }
-        .frame(width: 380, height: 720)
-        .background(LinearGradient(colors: [Color(red: 0.04, green: 0.10, blue: 0.42),
-                                             Color(red: 0.03, green: 0.06, blue: 0.27),
-                                             Color(red: 0.02, green: 0.04, blue: 0.17)],
-                                   startPoint: .topLeading, endPoint: .bottomTrailing))
-        .foregroundStyle(Theme.text)
-        .environment(\.colorScheme, .dark)
-        .onAppear { model.refreshPermission() }
     }
 
     private var header: some View {
@@ -116,10 +130,10 @@ struct ServerPanel: View {
                     .font(.system(size: 13, weight: .semibold)).lineLimit(1)
                 Spacer()
                 Circle().fill(model.phase == .running ? Theme.green : Theme.muted).frame(width: 6, height: 6)
-                Text(model.phase == .running ? "Online" : "Offline").font(.system(size: 11))
+                Text(L10n.text(model.phase == .running ? "network.online" : "network.offline")).font(.system(size: 11))
             }
             if model.addresses.isEmpty {
-                Text(model.phase == .running ? "Sem IP local. Verifique o Wi-Fi ou as permissões de Rede Local." : "Porta 8765 · aguardando início")
+                Text(L10n.text(model.phase == .running ? "network.noip" : "network.wait"))
                     .font(.system(size: 12)).foregroundStyle(Theme.muted)
             } else {
                 ForEach(model.addresses, id: \.self) { ip in
@@ -128,9 +142,9 @@ struct ServerPanel: View {
                 }
             }
             if model.phase == .running {
-                Text(model.mdns ? "Descoberta automática disponível" : "Descoberta indisponível · conecte pelo IP")
+                Text(L10n.text(model.mdns ? "network.discovery" : "network.manual"))
                     .font(.system(size: 11)).foregroundStyle(Theme.muted)
-                Text(model.clientConnected ? "Celular conectado por WebSocket" : "Aguardando o celular")
+                Text(L10n.text(model.clientConnected ? "network.connected" : "network.waiting"))
                     .font(.system(size: 11)).foregroundStyle(Theme.muted)
             }
         }.frame(maxWidth: .infinity, alignment: .leading).panelCard()
@@ -138,21 +152,78 @@ struct ServerPanel: View {
 
     private var permissionCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Acessibilidade", systemImage: "hand.raised")
+            Label(L10n.text("permission.title"), systemImage: "hand.raised")
                 .font(.system(size: 12, weight: .semibold))
             Text(permissionText).font(.system(size: 11)).foregroundStyle(Theme.muted)
-            if !model.appTrusted || model.helperTrusted != true {
-                Button("Abrir ajustes de Acessibilidade", action: model.openAccessibility)
+            if model.permissionBlocked {
+                Button(L10n.text("button.accessibility"), action: model.openAccessibility)
                     .font(.system(size: 12, weight: .medium)).buttonStyle(.plain).foregroundStyle(.cyan)
             }
         }.frame(maxWidth: .infinity, alignment: .leading).panelCard()
     }
 
     private var permissionText: String {
-        if model.helperTrusted == true { return "Agente autorizado a controlar mouse e teclado." }
-        if model.helperTrusted == false { return "Autorize Remote Mouse (ou remote-mouse-agent) nos ajustes. Depois, pare e inicie o servidor." }
-        return "\(model.appTrusted ? "App autorizado." : "App ainda não autorizado.") O estado do agente será verificado ao iniciar."
+        model.helperTrusted == true ? L10n.text("permission.allowed") : model.permissionMessage
     }
+
+    /// Not dismissible: the entire background is disabled and hidden from VoiceOver.
+    /// Settings, Finder and Quit remain accessible even while probing or stopping.
+    private var permissionOverlay: some View {
+        VStack(spacing: 0) {
+            ScrollView(showsIndicators: false) {
+                VStack {
+                    Spacer(minLength: 0)
+                    VStack(spacing: 18) {
+                        Image(systemName: "hand.raised.fill")
+                            .font(.system(size: 42)).foregroundStyle(.cyan)
+                            .accessibilityHidden(true)
+                        Text(L10n.text("permission.required"))
+                            .font(.system(size: 23, weight: .bold))
+                            .multilineTextAlignment(.center)
+                        if model.helperTrusted == nil && model.accessibility.problem == nil {
+                            ProgressView().controlSize(.small)
+                        }
+                        Text(model.permissionMessage)
+                            .font(.system(size: 13)).multilineTextAlignment(.center)
+                        if model.accessibility.problem != nil || model.helperTrusted == nil {
+                            Text(L10n.text("permission.explanation"))
+                                .font(.system(size: 12)).foregroundStyle(Theme.muted)
+                                .multilineTextAlignment(.center)
+                        }
+                        Button(action: model.openAccessibility) {
+                            Text(L10n.text("button.accessibility")).frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(PanelButtonStyle(primary: true))
+                        .keyboardShortcut(.defaultAction)
+                        Text(L10n.text("permission.helper.help"))
+                            .font(.system(size: 11)).foregroundStyle(Theme.muted)
+                            .multilineTextAlignment(.center)
+                        Button(action: model.showHelper) {
+                            Label(L10n.text("button.helper"), systemImage: "folder")
+                                .frame(maxWidth: .infinity)
+                        }.buttonStyle(PanelButtonStyle())
+                        Text(L10n.text("permission.automatic"))
+                            .font(.system(size: 11)).foregroundStyle(Theme.muted)
+                            .multilineTextAlignment(.center)
+                    }
+                    .panelCard()
+                    .accessibilityElement(children: .contain)
+                    Spacer(minLength: 0)
+                }
+                .frame(minHeight: 600)
+                .padding(20)
+            }
+            // Outside the scroll region: Quit remains visible with long translations.
+            Button(L10n.text("button.quit")) { NSApplication.shared.terminate(nil) }
+                .buttonStyle(.plain).keyboardShortcut("q")
+                .accessibilityHint(L10n.text("hint.quit"))
+                .frame(maxWidth: .infinity)
+                .padding(.top, 8).padding(.bottom, 16)
+        }
+        .background(Color.black.opacity(0.65))
+        .contentShape(Rectangle())
+    }
+
 }
 
 private struct PanelButtonStyle: ButtonStyle {

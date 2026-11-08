@@ -8,15 +8,24 @@ final class AgentController: ObservableObject {
     enum Phase { case stopped, starting, running, stopping, failed }
     @Published private(set) var phase: Phase = .stopped
     @Published private(set) var clientConnected = false
-    @Published private(set) var helperTrusted: Bool? = nil
-    @Published private(set) var appTrusted = false
+    @Published private(set) var accessibility = AccessibilityState()
+    var helperTrusted: Bool? { accessibility.trusted }
+    var permissionBlocked: Bool { accessibility.isBlocking }
+    var permissionMessage: String {
+        accessibility.problem ?? L10n.text(helperTrusted == nil ? "permission.checking" : "permission.explanation")
+    }
     @Published private(set) var addresses: [String] = []
     @Published private(set) var port: UInt16 = 8765
-    @Published private(set) var computerName = Host.current().localizedName ?? "Meu Mac"
+    @Published private(set) var computerName = Host.current().localizedName ?? L10n.text("name.mac")
     @Published private(set) var mdns = false
-    @Published private(set) var detail = "Inicie o servidor para conectar seu celular."
+    @Published private(set) var detail = L10n.text("detail.idle")
     @Published private(set) var copied = false
 
+    private var permissionProbe: Process?
+    private var probeOutput: Pipe?
+    private var probeTimedOut = false
+    private var pendingPrompt = false
+    private var quitting = false
     private var process: Process?
     private var input: Pipe?
     private var output: Pipe?
@@ -29,32 +38,120 @@ final class AgentController: ObservableObject {
     var busy: Bool { phase == .starting || phase == .stopping }
     var title: String {
         switch phase {
-        case .stopped: return "Seu Mac, sem fios."
-        case .starting: return "Iniciando…"
-        case .stopping: return "Encerrando…"
-        case .failed: return "Vamos tentar de novo?"
+        case .stopped: return L10n.text("title.idle")
+        case .starting: return L10n.text("title.starting")
+        case .stopping: return L10n.text("title.stopping")
+        case .failed: return L10n.text("title.failed")
         case .running:
-            if helperTrusted != true { return "Permissão necessária" }
-            return clientConnected ? "Conectado!" : "Pronto para conectar!"
+            if helperTrusted != true { return L10n.text("title.permission") }
+            return L10n.text(clientConnected ? "title.connected" : "title.ready")
         }
     }
     var address: String? { addresses.first.map { "ws://\($0):\(port)" } }
 
     init() {
         refreshPermission()
-        timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+        timer = Timer(timeInterval: 2, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.refreshPermission()
                 if self?.phase == .running { self?.send("status") }
             }
         }
+        if let timer { RunLoop.main.add(timer, forMode: .common) }
     }
 
-    func refreshPermission() { appTrusted = AXIsProcessTrustedWithOptions(nil) }
+    private var helperExecutable: URL? {
+        guard let executable = Bundle.main.executableURL?.deletingLastPathComponent()
+            .appendingPathComponent("remote-mouse-agent"),
+              FileManager.default.isExecutableFile(atPath: executable.path) else { return nil }
+        return executable
+    }
+
+    /// A fresh check-only process avoids stale TCC state and works before server startup.
+    /// It never binds a socket, advertises mDNS, constructs Enigo or injects input.
+    func refreshPermission(prompt: Bool = false) {
+        guard !quitting else { return }
+        guard permissionProbe == nil else {
+            pendingPrompt = pendingPrompt || prompt
+            return
+        }
+        guard let executable = helperExecutable else {
+            updatePermission(nil, problem: L10n.text("error.missing"))
+            return
+        }
+        let task = Process(), stdout = Pipe()
+        task.executableURL = executable
+        task.arguments = [prompt ? "--request-accessibility" : "--check-accessibility"]
+        // A mismatched older helper must fail parsing instead of starting a server.
+        var environment = ProcessInfo.processInfo.environment
+        environment["REMOTE_MOUSE_BIND"] = "permission-check-only"
+        task.environment = environment
+        task.standardInput = FileHandle.nullDevice
+        task.standardOutput = stdout
+        task.standardError = FileHandle.nullDevice
+        permissionProbe = task; probeOutput = stdout; probeTimedOut = false
+        task.terminationHandler = { [weak self] task in
+            // Check-only output is one small JSON line. Drain only after termination,
+            // off the UI thread, so EOF cannot race the event reader of the server.
+            let data = (try? stdout.fileHandleForReading.readToEnd()) ?? Data()
+            try? stdout.fileHandleForReading.close()
+            DispatchQueue.main.async { self?.finishPermissionProbe(task, data: data) }
+        }
+        do {
+            try task.run()
+            try? stdout.fileHandleForWriting.close()
+        } catch {
+            try? stdout.fileHandleForReading.close()
+            try? stdout.fileHandleForWriting.close()
+            permissionProbe = nil; probeOutput = nil
+            updatePermission(nil, problem: L10n.text("error.launch", error.localizedDescription))
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self, weak task] in
+            guard let self, let task, self.permissionProbe === task, task.isRunning else { return }
+            self.probeTimedOut = true
+            self.updatePermission(nil, problem: L10n.text("error.probe.timeout"))
+            task.terminate() // only this owned, finite check process
+        }
+    }
+
+    private func finishPermissionProbe(_ task: Process, data: Data) {
+        guard permissionProbe === task else { return }
+        permissionProbe = nil; probeOutput = nil
+        guard !quitting else { return }
+        if probeTimedOut {
+            updatePermission(nil, problem: L10n.text("error.probe.timeout"))
+        } else {
+            let event = String(decoding: data.prefix(4096), as: UTF8.self)
+                .split(separator: "\n").compactMap { AgentEvent.parse(String($0)) }
+                .first { $0.event == "permission" }
+            if task.terminationStatus == 0, let trusted = event?.accessibility {
+                updatePermission(trusted)
+            } else {
+                updatePermission(nil, problem: L10n.text("error.probe"))
+            }
+        }
+        if pendingPrompt {
+            pendingPrompt = false
+            refreshPermission(prompt: true)
+        }
+    }
+
+    private func updatePermission(_ trusted: Bool?, problem: String? = nil) {
+        accessibility.confirm(trusted, problem: problem)
+        if trusted != true, process != nil, phase != .stopping {
+            stop(failure: L10n.text("detail.revoked"))
+        }
+    }
+
+    func showHelper() {
+        guard let executable = helperExecutable else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([executable])
+    }
 
     func openAccessibility() {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(options)
+        refreshPermission(prompt: true)
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
             NSWorkspace.shared.open(url)
         }
@@ -67,12 +164,10 @@ final class AgentController: ObservableObject {
     }
 
     func start() {
-        guard process == nil else { return }
-        guard let executable = Bundle.main.executableURL?.deletingLastPathComponent()
-            .appendingPathComponent("remote-mouse-agent"),
-            FileManager.default.isExecutableFile(atPath: executable.path) else {
+        guard process == nil, !permissionBlocked, !quitting else { return }
+        guard let executable = helperExecutable else {
             phase = .failed
-            detail = "Agente ausente. Gere o aplicativo com macos/scripts/build-app.sh."
+            detail = L10n.text("error.missing")
             return
         }
         let task = Process()
@@ -86,9 +181,9 @@ final class AgentController: ObservableObject {
         task.standardOutput = stdout
         task.standardError = stderr
         input = stdin; output = stdout; errors = stderr; process = task
-        lastError = ""; pendingFailure = nil; helperTrusted = nil; clientConnected = false
+        lastError = ""; pendingFailure = nil; clientConnected = false
         addresses = []; mdns = false
-        phase = .starting; detail = "Preparando a conexão com seu celular…"
+        phase = .starting; detail = L10n.text("detail.starting")
 
         // A dedicated serial reader preserves line order and never blocks the UI.
         let reader = AgentOutputReader()
@@ -121,11 +216,11 @@ final class AgentController: ObservableObject {
             try? stderr.fileHandleForWriting.close()
         } catch {
             cleanup()
-            phase = .failed; detail = "Não foi possível abrir o agente: \(error.localizedDescription)"
+            phase = .failed; detail = L10n.text("error.launch", error.localizedDescription)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 12) { [weak self, weak task] in
             guard let self, let task, self.process === task, self.phase == .starting else { return }
-            self.stop(failure: "O agente não confirmou a inicialização. Verifique Acessibilidade e a porta 8765.")
+            self.stop(failure: L10n.text("error.timeout"))
         }
     }
 
@@ -137,11 +232,17 @@ final class AgentController: ObservableObject {
                   let trusted = event.accessibility, let mdns = event.mdns else { return }
             self.port = port; self.addresses = addresses
             computerName = event.name ?? computerName
-            helperTrusted = trusted; self.mdns = mdns
+            self.mdns = mdns
+            if !trusted {
+                updatePermission(false)
+                return
+            }
             phase = .running
-            detail = "Abra o Remote Mouse no celular e escolha este Mac."
+            detail = L10n.text("detail.ready")
         case "permission":
-            helperTrusted = event.accessibility
+            // A denial from the running input process is authoritative. A success
+            // cannot override a newer denied/failed fresh permission probe.
+            if event.accessibility == false { updatePermission(false) }
             if let addresses = event.addresses { self.addresses = addresses }
         case "client": clientConnected = event.connected ?? false
         default: break
@@ -172,6 +273,9 @@ final class AgentController: ObservableObject {
     }
 
     func quit(completion: @escaping () -> Void) {
+        quitting = true
+        timer?.invalidate()
+        if let task = permissionProbe, task.isRunning { task.terminate() }
         guard process != nil else { completion(); return }
         shutdownCompletion = completion
         stop()
@@ -189,10 +293,10 @@ final class AgentController: ObservableObject {
             detail = failure
         } else if !requested {
             detail = error.isEmpty
-                ? "O agente encerrou (código \(task.terminationStatus)). Verifique a porta 8765 e as permissões."
-                : "Falha no agente: \(error)"
+                ? L10n.text("error.exited", task.terminationStatus)
+                : L10n.text("error.agent", error)
         } else if shutdownCompletion == nil {
-            detail = "Servidor parado. Seu Mac não está recebendo comandos."
+            detail = L10n.text("detail.stopped")
         }
         let completion = shutdownCompletion
         shutdownCompletion = nil
@@ -209,7 +313,7 @@ final class AgentController: ObservableObject {
         try? errors?.fileHandleForReading.close()
         try? errors?.fileHandleForWriting.close()
         process = nil; input = nil; output = nil; errors = nil
-        clientConnected = false; helperTrusted = nil; mdns = false; addresses = []
+        clientConnected = false; mdns = false; addresses = []
     }
 
     func copyAddress() {

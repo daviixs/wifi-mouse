@@ -2,7 +2,7 @@
 
 App nativo **SwiftUI + AppKit**, residente na barra de menus, para macOS 13 ou superior. Clique no ícone de mouse no topo da tela para abrir o painel. O macOS decide a posição dos itens: o aplicativo não pode fixar seu ícone ao lado da câmera/notch. Não há ícone no Dock (`LSUIElement`).
 
-O painel usa o azul-marinho, gradientes azuis, cards arredondados e a ilustração de computador do visual mobile como referência. Textos em pt-BR. Não é um app iOS e não altera o mobile nem os diretórios gerados `ios/`/`android/`.
+O painel usa o azul-marinho, gradientes azuis, cards arredondados e a ilustração de computador do visual mobile como referência. Interface em pt-BR, inglês ou espanhol, escolhida automaticamente pelo idioma do sistema na abertura (fallback em inglês). Não é um app iOS e não altera o mobile nem os diretórios gerados `ios/`/`android/`.
 
 ## O que esta versão faz
 
@@ -13,6 +13,12 @@ O painel usa o azul-marinho, gradientes azuis, cards arredondados e a ilustraç�
 - Atualiza IPs e permissão do helper a cada dois segundos enquanto o servidor está ativo.
 - Mostra a permissão de Acessibilidade do **agente que injeta input**, separada da permissão do app Swift; abre os ajustes de Acessibilidade e Rede.
 - Exibe falhas de inicialização/porta ocupada sem tomar a porta ou encerrar outro agente.
+
+Enquanto a permissão **real do helper** estiver negada, desconhecida ou com erro de verificação, um aviso bloqueia o painel. O fundo fica sem interação e fora da navegação do VoiceOver; **Abrir ajustes**, **Mostrar agente no Finder** e **Sair/⌘Q** continuam disponíveis. A autorização apenas do app Swift não libera o painel.
+
+Um processo curto do próprio helper executa `--check-accessibility` a cada dois segundos (também ao reativar o app). Ele retorna somente a autorização do processo real, **antes de interpretar o bind, construir Enigo, abrir servidor, anunciar mDNS ou injetar input**. `--request-accessibility` é usado somente após clicar no CTA para solicitar a autorização. A consulta não depende de iniciar o servidor, evitando o bloqueio circular de exigir permissão para verificar permissão. Um bind propositalmente inválido é passado às consultas para impedir que um helper antigo/incompatível abra servidor por acidente.
+
+Concessão libera o painel automaticamente; revogação ou falha de verificação volta a bloquear e encerra o servidor pertencente ao app. A verificação tem timeout de cinco segundos e é repetida automaticamente. Processos novos evitam confiar no cache de autorização de um servidor antigo. Ao conceder novamente, o servidor **não** reinicia sozinho: clique em Iniciar servidor. Indicadores de rolagem estão ocultos, mas conteúdo e aviso continuam roláveis por trackpad/roda e acessíveis.
 
 Por segurança, o servidor só inicia quando você clica em **Iniciar servidor**. Não há inicialização automática no login nesta versão.
 
@@ -26,6 +32,8 @@ Remote Mouse.app/
   Contents/MacOS/RemoteMouse         # UI SwiftUI / MenuBarExtra (.window)
   Contents/MacOS/remote-mouse-agent  # o agente Rust deste repositório
   Contents/Resources/RemoteMouse.icns
+  Contents/Resources/RemoteMouse_RemoteMouse.bundle/  # Localizable.strings pt-BR/en/es
+  Contents/Resources/{pt-BR,en,es}.lproj/InfoPlist.strings
 ```
 
 A UI inicia apenas o executável irmão dentro do próprio bundle, com `REMOTE_MOUSE_DESKTOP=1` e `REMOTE_MOUSE_BIND=0.0.0.0:8765`. Ela mantém um `Process` e pipes privados. Não procura processos por nome, não usa `killall`/`pgrep`, não reaproveita um servidor desconhecido e não abre outra porta para IPC.
@@ -76,8 +84,8 @@ Bundles anteriores são preservados com sufixo `previous.<data-hora>` (hora loca
 ## Primeira execução e permissões
 
 1. Abra o DMG e arraste **Remote Mouse** para **Applications**. Ejete o DMG e execute a cópia instalada (não a cópia montada no DMG).
-2. Clique no ícone na barra de menus e em **Abrir ajustes de Acessibilidade**. Autorize Remote Mouse. Inicie o servidor; se o sistema pedir também `remote-mouse-agent`, autorize esse executável. Ele fica em `/Applications/Remote Mouse.app/Contents/MacOS/remote-mouse-agent` (no seletor do Finder, use ⌘⇧G para ir ao caminho).
-3. Após mudar a permissão, pare e inicie o servidor. Algumas versões do macOS mantêm a autorização em cache até reiniciar o processo. A verificação do helper é a fonte do status de controle, não a suposição de que o app pai foi autorizado.
+2. Clique no ícone na barra de menus e em **Abrir ajustes de Acessibilidade** no aviso sobreposto. Autorize Remote Mouse e, se necessário, `remote-mouse-agent`. **Mostrar agente no Finder** revela o executável para adicioná-lo com o botão + nos ajustes. O painel só é liberado após a consulta real ao helper confirmar autorização. Ele fica em `/Applications/Remote Mouse.app/Contents/MacOS/remote-mouse-agent` (no seletor do Finder, use ⌘⇧G para ir ao caminho).
+3. A mudança de permissão é detectada automaticamente, sem abrir servidor para consultar. Depois de o aviso sumir, clique em **Iniciar servidor**. Se revogar a autorização, o aviso retorna e o servidor é encerrado automaticamente. A verificação do helper é a fonte do status de controle, não a suposição de que o app pai foi autorizado.
 4. Permita **Rede Local** se o macOS solicitar e **conexões de entrada** no Firewall. Em versões com esse controle, confira **Privacidade e Segurança → Rede Local** se a descoberta falhar. O botão Wi-Fi abre os ajustes de rede.
 5. No celular, conectado à mesma rede Wi-Fi, escolha este Mac na descoberta automática. Como alternativa, digite no mobile um dos IPs exibidos (não o IP de VPN/outra interface). A porta é 8765. **Copiar endereço** copia a URL completa para diagnóstico.
 
@@ -120,19 +128,30 @@ npm run typecheck
 npm test
 npm run test:motion
 
+# Em qualquer host com Python 3: tabelas, placeholders e declarações de empacotamento
+python3 macos/scripts/check-resources.py
+
 # Em macOS: testes completos Rust + unitários Swift
 macos/scripts/test.sh
 
-# Após o build e autorização de Acessibilidade:
+# Após o build, mesmo sem autorização: consulta sem servidor/input
+python3 macos/scripts/smoke-agent.py "macos/dist/arm64/Remote Mouse.app" --permission-only
+
+# Após autorização de Acessibilidade:
 python3 macos/scripts/smoke-agent.py "macos/dist/arm64/Remote Mouse.app"
 ```
 
-O smoke test inicia **seus próprios** helpers em porta temporária; não envia input e não mexe em processos existentes. Verifica evento ready/permissão real, conflito de porta, stop com cliente travado no handshake e encerramento por EOF. Pode solicitar permissão para o helper de teste; valide também o app instalado.
+O modo `--permission-only` roda com configuração de bind inválida para comprovar que a consulta não chega à inicialização do servidor; resultado `false` é válido e não é falha do processo. O smoke test completo inicia **seus próprios** helpers em porta temporária; não envia input e não mexe em processos existentes. Verifica evento ready/permissão real, conflito de porta, stop com cliente travado no handshake e encerramento por EOF. Pode solicitar permissão para o helper de teste; valide também o app instalado.
 
 Checklist manual obrigatório no Mac:
 
 - Sem Dock; ícone abre/fecha o painel; painel não ultrapassa a área útil (há rolagem).
-- Permissão negada, concedida e revogada; mensagens coerentes; reinício após concessão.
+- Permissão inicialmente negada/desconhecida: aviso indeletável, fundo inativo, CTA e Sair/⌘Q funcionam; não há servidor ou anúncio mDNS durante consultas.
+- Concessão sem iniciar servidor libera automaticamente; só autorizar o app pai não deve bastar se o helper não estiver autorizado.
+- Revogação enquanto conectado retorna aviso e para servidor; concessão posterior libera sem reiniciar servidor automaticamente.
+- Falha/timeout do helper não libera o painel; novas consultas recuperam sem travar a UI.
+- Idiomas pt-BR, en, es nas preferências do sistema/app (reinicie o app após mudar idioma), textos longos, leitores de tela e rolagem sem indicadores.
+- Mover o .app para outra pasta/Mac sem a pasta .build: traduções e descrição de Rede Local continuam disponíveis.
 - Porta ocupada não mata outro processo; tentar novamente funciona após liberar a porta.
 - Iniciar/parar várias vezes; conexão/desconexão do celular atualiza o painel.
 - Mouse, teclado, atalhos, mídia e volume continuam funcionando pelo celular.
