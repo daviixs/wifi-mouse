@@ -107,22 +107,41 @@ Bundles anteriores são preservados com sufixo `previous.<data-hora>` (hora loca
 
 ## Janela do instalador DMG
 
-O fundo branco minimalista aprovado está em `macos/Resources/dmg/`. O original JPEG (1152×864) é preservado, e a imagem pronta para o Finder mede **640×480**. A arte/área útil pretendida é **640×480**. O pedido atual ao Finder é **{120,120,760,622}**, um retângulo de **640×502 nas coordenadas AppleScript**. A versão inicial presumiu 22 pontos de título, mas isso não foi calibrado no Mac do proprietário: não se deve afirmar que esses números sejam universalmente a moldura externa ou a área de conteúdo. O novo diagnóstico registra o retorno real do Finder antes/depois de reabrir. A legenda e os ornamentos têm margem.
+O fundo branco aprovado continua em `macos/Resources/dmg/`, PNG **640×480**, sem alterações de arte. Ícones centrados em **(170,240)** e **(470,240)**, tamanho 72, nomes 12 abaixo. Apenas app e link Applications são visíveis normalmente; o fundo permanece oculto em `.background/background.png`.
 
-Ícones: app à esquerda em **(170,240)**, Applications à direita em **(470,240)**, alinhados à seta central; tamanho **72**, nomes **12**, labels embaixo. Visualização por ícones, sem organização automática, sem toolbar/sidebar/status bar. Apenas app e Applications são itens visíveis na visualização normal; o fundo fica em `.background/` e os metadados em `.DS_Store`. A preferência pessoal de exibir arquivos ocultos continua sob controle do usuário.
+### Por que deixar de automatizar Finder
 
-**Isto define/persiste o tamanho e as posições iniciais, não trava o resize do Finder.** O usuário ainda pode redimensionar, mover a janela e mudar a visualização; o Finder pode lembrar escolhas anteriores ou adaptar a janela à tela. Nenhuma preferência global do Finder é alterada.
+O log real de `df98a7d` confirmou: após o setter os ícones estavam em y240, após reabrir ambos passaram para y253; bounds e demais opções não mudaram e ambos os seletores concordaram. Logo a hipótese de divergência entre seletor de pasta/janela não se confirmou nesse Mac. `background=0` já era observado antes de reabrir, mas o guard antigo condensava **erro de leitura/coerção** e **comparação falsa de alias** no mesmo zero: esse log não prova que a imagem estivesse ausente ou que o setter tivesse falhado.
 
-### Reconstruir apenas o DMG, com o .app já existente
+Não há evidência suficiente para atribuir os 13 pontos a título, origem de scroll, centro da legenda ou serialização interna do Finder. Não há compensação `-13`, tolerância ou loop tentando coordenadas novas. Em vez de outra variação do AppleScript, apenas a etapa de layout foi substituída pelo modelo de metadados usado pelo **dmgbuild**; hdiutil, ditto, assinaturas, publicação e limpeza segura continuam no pipeline existente.
 
-Requisitos adicionais para o layout: **Python 3**, ferramentas Apple `hdiutil`, `ditto`, `codesign`, `osascript` e uma sessão gráfica do Finder aberta. Não há pacote pip/npm/Homebrew a instalar. Este comando não recompila Swift/Rust nem modifica o app original.
+### Layout persistido por codecs conhecidos
 
-Na raiz do repositório:
+`dmg_metadata.py` usa **ds_store 1.3.1** e **mac_alias 2.2.2** (MIT). Os dois wheels Python puros vêm no repositório/patch, com licenças e hashes verificados antes da importação. Não requer pip, Homebrew, download durante o build, novo Python ou alteração de ambiente global. Ver `macos/scripts/vendor/README.md`.
+
+São escritos registros reais `.DS_Store`: `bwsp` para a janela, `icvp` para visualização/fundo, `icvl=icnv`, `vSrn=1` e `Iloc` para os centros dos ícones. O contrato agora é **640×480 nominal nos metadados**, via `WindowBounds={{120,120},{640,480}}`, como no dmgbuild — não o retângulo de bounds da API AppleScript. Não se soma uma decoração de 22 pontos. Os `Iloc` mantêm precisamente os pontos aprovados; scroll e grid offset ficam em zero, grid spacing 80 (dentro do limite documentado), `arrangeBy=none`, barras/sidebar ocultos.
+
+O Alias do fundo é criado **nativamente** no Mac a partir do arquivo dentro da imagem montada, com identidade real de volume, datas e CNIDs; não é um blob inventado nem um `.DS_Store` de outro disco. O destino deve ser relativo à raiz desse volume, exatamente `.background/background.png`. Retiram-se apenas os campos opcionais de dica de mountpoint/imagem do host; a identidade real e o caminho relativo permanecem. Não depende do workspace antigo.
+
+Depois de fechar/fsync do arquivo, ele é lido e validado; a imagem é desmontada, convertida a **UDZO**, montada somente leitura em outro mountpoint privado e validada de novo. A validação:
+
+- exige todas as opções e coordenadas `Iloc` exatas, sem tolerância (inclusive um ponto ou +13 é rejeitado);
+- lê e interpreta o Alias; exige caminho relativo, identidade do volume e identidade do arquivo iguais às obtidas nativamente do fundo na montagem atual;
+- confere fundo byte a byte contra o PNG aprovado e link `/Applications`;
+- exige o mesmo SHA-256 de `.DS_Store` antes e depois da conversão/remontagem;
+- continua verificando assinatura do app copiado e `hdiutil verify`, antes de publicar sem sobrescrever.
+
+Não abre Finder, não lê seu cache, não altera TCC ou preferências globais e não precisa de permissão de Automação/sessão gráfica. O build precisa de **macOS, Python 3 e ferramentas hdiutil/ditto/codesign**; `Alias.for_file` é uma API nativa via a biblioteca. Se falhar, o erro identifica `metadata[write|verify]`, mountpoint, valores reais e identidade/caminho do Alias; não mascara a falha com um Boolean genérico. Falha de desmontagem mantém o erro original e preserva o workspace; discos alheios não são desmontados.
+
+**Limite:** a validação é dos metadados efetivos na imagem somente leitura, não um teste de renderização do Finder. O layout segue uma implementação pública usada em produção; a criação nativa do Alias, o DMG, a dimensão visível de conteúdo/chrome e a aparência ainda precisam de validação no Mac. Nada disso foi executado na box Linux. Finder continua redimensionável e pode adaptar a janela à tela do usuário.
+
+### Reconstruir apenas o DMG
+
+O `.app` existente não é recompilado nem modificado. Na raiz do repositório:
 
 ```bash
-ARCH=arm64  # Apple Silicon; para Intel use ARCH=x86_64
+ARCH=arm64  # Intel: x86_64
 DMG="macos/dist/$ARCH/Remote-Mouse-$ARCH.dmg"
-# Preserva o DMG anterior em uma pasta nova, sem apagar ou sobrescrever:
 if [ -e "$DMG" ] || [ -L "$DMG" ]; then
   ARCHIVE="$(mktemp -d "macos/dist/$ARCH/dmg-anterior.XXXXXX")"
   mv "$DMG" "$ARCHIVE/"
@@ -130,71 +149,19 @@ fi
 macos/scripts/build-dmg.sh "$ARCH"
 ```
 
-O app precisa existir em `macos/dist/$ARCH/Remote Mouse.app`. O resultado novo fica no mesmo diretório, como `Remote-Mouse-arm64.dmg` ou `Remote-Mouse-x86_64.dmg`. Pode-se reconstruir um DMG Intel a partir do app Intel existente em um Mac Apple Silicon (e vice-versa); empacotar não executa o aplicativo. Para recriar também o aplicativo, rode `macos/scripts/build-app.sh "$ARCH"` antes do build do DMG.
+Se o build anterior falhou sem publicar DMG, basta `macos/scripts/build-dmg.sh arm64`. Identidade `CODESIGN_IDENTITY` e processo de notarização continuam os mesmos; um DMG novo exige nova notarização/staple para distribuição.
 
-Para assinar o novo container, mantenha `CODESIGN_IDENTITY` com sua identidade Developer ID, como na seção de assinatura. A assinatura do app copiado é preservada/verificada; o novo DMG precisa de **nova notarização/staple**, mesmo que um DMG anterior já tenha sido notarizado.
-
-### Como o layout é persistido e validado
-
-`build-dmg.sh` chama `create-dmg.py` (biblioteca padrão). É criado um workspace único e uma imagem HFS+ gravável. O Finder grava o layout real por `dmg-layout.applescript`; não são fabricados bytes de `.DS_Store`. O fundo é um arquivo do próprio volume, referenciado por alias relativo à raiz desse volume, não uma string com o caminho temporário do host.
-
-Depois de fechar a janela, o build aguarda `.DS_Store` não vazio com tamanho/mtime estáveis por amostras consecutivas (máximo 10 segundos), desmonta sua imagem, converte para **UDZO somente leitura**, monta novamente em **outro mountpoint privado**, e verifica no Finder tamanho, visualização, barras, posições, nomes e fundo **sem reaplicar configurações**. Somente após essas verificações, desmontagem, assinatura opcional e `hdiutil verify` o arquivo final é publicado atomicamente, sem sobrescrever destino existente.
-
-O macOS pode pedir autorização para o Terminal/host de build controlar o **Finder** em **Privacidade e Segurança → Automação**. Isso é separado da Acessibilidade do app Remote Mouse. Se negar, se não houver sessão gráfica, ou se a automação/layout falhar, o build termina com erro; não produz silenciosamente um DMG com layout padrão. Apple Events têm timeout de 60 segundos e `osascript` tem limite total de 90 segundos. Não há UI scripting, alteração de TCC, desativação de proteções ou execução como administrador.
-
-Limpeza verifica o caminho da imagem e o mountpoint específico criados por esta execução; nunca ejeta por nome de volume, não usa unmount forçado e não toca discos alheios. Se não puder confirmar a desmontagem, preserva o workspace indicado no erro em vez de remover uma pasta que ainda pode conter volume montado. Resolva essa montagem antes de remover seus temporários manualmente.
-
-### Diagnóstico de ícones e opções de visualização
-
-O log real recebido do Mac confirmou bounds corretos após definir/reabrir, mas a mensagem antiga “posição do app incorreta” **não continha nenhuma coordenada dos ícones**. Não é possível provar a causa nativa daquele erro só com os bounds.
-
-Constatado no código anterior: posições eram escritas na pasta `volumeRoot` **antes** de definir os bounds finais; a validação lia a pasta, fazia comparação de lista dentro de `tell Finder` e abortava no primeiro erro, sem mostrar o valor lido. A propriedade `position` já era a propriedade correta: significa posição dentro da janela pai. `desktop position` é outra propriedade, exclusiva da posição no desktop; **não é a correção** e não se deve somar a origem de tela aos pontos dos ícones. A diferença entre `item of volumeRoot` e `item of targetWindow` não é uma causa demonstrada: normalmente ambos podem identificar o mesmo item.
-
-O incremento torna o contexto explícito: opções/`not arranged` → bounds finais estáveis → `position of item ... of targetWindow` → update → snapshot estável → fechar/reabrir → outro snapshot. Não muda arte, bounds, ícones **(170,240)/(470,240)** nem tamanhos 72/12; não tenta novas coordenadas, não reaplica ícones após reabrir e não escreve nenhuma posição no desktop. O modo `verify` somente lê o layout da imagem final.
-
-Cada snapshot agora contém bounds, posições de **ambos** os ícones, visualização, arrangement (flag e nome), tamanhos, barras/sidebar, labels, informação extra e correspondência do fundo com o volume. Há até 25 leituras, pedindo quatro snapshots consecutivos iguais; isso espera estabilidade, **não** aceita um resultado errado. O seletor antigo da pasta é lido adicionalmente em `folder_app`/`folder_applications`, apenas para comparação diagnóstica; esses campos não dirigem escrita, validação nem estabilidade.
-
-Os valores concretos são serializados para o protocolo v2 e comparados numericamente em Python, fora da terminologia/referências de objetos do Finder. Não se afirma que comparação de listas ou coerção fosse a causa original. Todas as divergências legíveis são agregadas em **um único erro**, incluindo os dois snapshots e a fase, em vez de descobrir um assert novo a cada tentativa. Uma opção ilegível que impeça a coleta ainda gera erro nativo identificado pela fase. Se a desmontagem também falhar, o diagnóstico da limpeza mantém a falha original e preserva os temporários. Tamanho/posições/opções continuam estritos, sem tolerância geométrica.
-
-Como interpretar um eventual novo diagnóstico:
-
-- Posição já errada em `configure:after-set`: o desvio ocorreu antes de fechar, não é demonstravelmente uma falha exclusiva de persistência.
-- Posição correta no setter e diferente em `configure:after-reopen`: alteração ao reabrir; ainda pode ser persistência ou adaptação da janela/canvas, não se presume `.DS_Store` corrompido.
-- Diferença entre `app` e `folder_app`: evidencia diferença entre seletores naquela execução; só as coordenadas do item da janela aberta validam o layout.
-- `verify:after-reopen`: diferença na remontagem somente leitura; nenhuma correção é reaplicada para esconder a falha.
-- `arrangement_none=0`: consultar `arrangement_text` para distinguir snap-to-grid/ordenação de posições livres. `1` significa a opção esperada, `0` significa falso; demais campos numéricos mostram os valores reais.
-
-**Se falhar novamente, basta copiar o erro completo com ambos os snapshots** — não é preciso recompilar o app nem experimentar tolerâncias. Este é um ajuste de ordem/contexto e diagnóstico, **não uma causa macOS provada nem garantia de conclusão do build**. Finder/AppleScript não foram executados na box Linux.
-
-Referências públicas consultadas: [dicionário Finder — position/desktop position/arrangement](https://github.com/ali-rantakari/trash/blob/master/Finder.sdef), [template create-dmg — container window, bounds antes de posicionar](https://github.com/create-dmg/create-dmg/blob/master/support/template.applescript). São referências de semântica/exemplos, não um teste do Mac do proprietário.
-
-### Diagnóstico de tamanho e persistência
-
-O erro antigo “tamanho inicial não persistido” comparava os **quatro números** de bounds. Portanto, podia acusar tamanho errado quando apenas x/y mudavam ao reabrir/remontar em outra posição de tela. Esse defeito de classificação é verificável no código; não prova que tenha sido a diferença observada no Mac, porque o erro antigo não registrava os números reais.
-
-A correção separa origem de **largura/altura**, sem tolerância: o contrato atual continua exigindo exatamente **640×502 nas coordenadas retornadas por bounds**. Um retângulo transladado de mesmo tamanho passa; diferenças de um ponto ou de 22 pontos **não** são aceitas automaticamente. Também não se supõe que “is not” de AppleScript esteja quebrado: o cálculo numérico/testável agora ocorre em Python sobre coordenadas primitivas retornadas pelo Finder.
-
-O tamanho é definido **uma vez, depois** de opções/barras/fundo e **antes** das posições dos ícones. Foi removida a sequência intermediária de encolher dez pontos e aumentar novamente. São coletadas leituras estáveis após o setter e após fechar/reabrir; a remontagem somente leitura continua apenas verificando, nunca corrigindo configurações. O script não altera preferências globais nem tenta corrigir chrome por números mágicos.
-
-O log contém `pedido`, `após definir`, `após reabrir` e a fase:
-
-- `configure:after-set`: Finder não retornou o tamanho solicitado após o setter; pode ser semântica de coordenadas/chrome ou limitação de tela.
-- `configure:after-reopen`: setter estava correto, mas a reabertura retornou dimensão diferente; precisa investigar persistência/ajuste do Finder.
-- `verify:after-reopen`: divergência após conversão/remontagem somente leitura.
-- `configure:DS_Store`: o arquivo de metadados não ficou estável no limite de espera.
-
-Essas são classificações, não diagnósticos definitivos de uma causa macOS. **Se ainda falhar, envie a linha completa `Finder[...]` com os dois retângulos reais**; não basta a mensagem antiga sem coordenadas. Isso permite decidir se há diferença de decoração ou gravação, sem escolher tamanhos ao acaso ou enfraquecer o gate. Enquanto uma dimensão real diferir do contrato, o DMG não é publicado.
-
-Se o `.app` já foi criado, não recompile o app/Rust: basta `macos/scripts/build-dmg.sh arm64` (Intel: `x86_64`). Caso um DMG anterior exista, arquive-o com o bloco da seção acima; não o apague para diagnosticar.
-
-Testes portáveis (não substituem Finder real):
+Testes portáveis:
 
 ```bash
+python3 macos/scripts/test_dmg_metadata.py
 python3 macos/scripts/test_dmg_layout.py
 bash -n macos/scripts/build-dmg.sh
 ```
 
-Checklist obrigatório no Mac: gerar, ejetar e abrir o DMG final pelo Finder, confirmar fundo/ícones/bounds e somente dois itens visíveis; testar em outra pasta/Mac sem o workspace; arrastar para Applications; verificar que nenhum volume temporário ficou montado. O build aqui foi escrito/testado em Linux com mocks dos comandos Apple: **nenhum DMG real nem AppleScript/Finder runtime foi executado nesta box**.
+Os testes de metadados escrevem/reabrem `.DS_Store` e Alias **binários reais**, mas usam identidade de filesystem de fixture declarada no Linux. Só a orquestração hdiutil/codesign tem mocks. Checklist no Mac: gerar, ejetar, abrir a imagem final em outra pasta, conferir imagem/legendas/ícones alinhados, arrastar para Applications e confirmar ausência de volumes temporários. A renderização não é certificada por um teste de bytes.
+
+Referências: [settings/window_rect e limite grid_spacing](https://dmgbuild.readthedocs.io/en/latest/settings.html), [dmgbuild core](https://github.com/dmgbuild/dmgbuild/blob/main/src/dmgbuild/core.py), [formato Iloc — centro do ícone, sem legenda](https://metacpan.org/dist/Mac-Finder-DSStore/view/DSStoreFormat.pod), [mac_alias — caminho relativo ao volume](https://github.com/dmgbuild/mac_alias/blob/master/src/mac_alias/alias.py).
 
 ## Primeira execução e permissões
 

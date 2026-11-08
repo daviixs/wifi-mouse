@@ -5,5 +5,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 command -v python3 >/dev/null || { echo "Erro: Python 3 é necessário para validar os bundles de idiomas." >&2; exit 1; }
 python3 "$ROOT/macos/scripts/check-resources.py"
 python3 "$ROOT/macos/scripts/test_bundle_resources.py"
+python3 "$ROOT/macos/scripts/test_dmg_metadata.py"
+python3 "$ROOT/macos/scripts/test_dmg_layout.py"
 cargo test --locked --manifest-path "$ROOT/rust-agent/Cargo.toml"
 swift test --package-path "$ROOT/macos/RemoteMouse"

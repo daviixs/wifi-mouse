@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Build a Finder-laid-out, verified, read-only DMG using Apple tools + Python stdlib.
-Requires a logged-in macOS desktop and permission for the terminal to automate Finder.
+"""Build a metadata-verified, read-only DMG using Apple tools and vendored codecs.
+Uses the same binary layout codecs as dmgbuild; never automates Finder.
 """
 import argparse
 import json
@@ -13,7 +13,8 @@ import struct
 import subprocess
 import sys
 import tempfile
-import time
+
+from dmg_metadata import MetadataError, write_layout, verify_layout
 
 
 class BuildError(RuntimeError):
@@ -25,7 +26,7 @@ def run(arguments, timeout=120):
         result = subprocess.run([str(arg) for arg in arguments], stdin=subprocess.DEVNULL,
                                 capture_output=True, timeout=timeout, check=True)
     except subprocess.TimeoutExpired as error:
-        raise BuildError(f"Timeout ({timeout}s): {arguments[0]}. Verifique Finder/Automation e montagens.") from error
+        raise BuildError(f"Timeout ({timeout}s): {arguments[0]}. Verifique as ferramentas Apple e montagens.") from error
     except subprocess.CalledProcessError as error:
         diagnostic = (error.stderr or error.stdout or b"").decode(errors="replace").strip()
         raise BuildError(f"Falha em {arguments[0]}: {diagnostic}") from error
@@ -83,119 +84,13 @@ def attach(mount, readonly):
         raise BuildError("hdiutil não confirmou o mountpoint privado solicitado.")
 
 
-EXPECTED_BOUNDS = (120, 120, 760, 622)
-EXPECTED_SIZE = (640, 502) # script-coordinate contract; 640×480 art + nominal chrome
-
-
-def read_rectangle(text):
+def image_layout(mode, mount):
     try:
-        rectangle = tuple(int(value) for value in text.split(","))
-    except ValueError as error:
-        raise BuildError(f"Bounds inválidos do Finder: {text!r}") from error
-    if len(rectangle) != 4:
-        raise BuildError(f"Bounds do Finder precisam de quatro coordenadas: {text!r}")
-    return rectangle
-
-
-EXPECTED_POSITIONS = {"app": (170, 240), "applications": (470, 240)}
-EXPECTED_OPTIONS = {
-    "view_icon": 1, "arrangement_none": 1, "icon_size": 72, "text_size": 12,
-    "toolbar": 0, "statusbar": 0, "sidebar": 0, "labels_bottom": 1,
-    "item_info": 0, "background": 1,
-}
-SNAPSHOT_KEYS = {"bounds", "app", "applications", "arrangement_text", "folder_app", "folder_applications"} | set(EXPECTED_OPTIONS)
-
-
-def read_point(text):
-    try:
-        point = tuple(int(value) for value in text.split(","))
-    except ValueError as error:
-        raise BuildError(f"Posição inválida do Finder: {text!r}") from error
-    if len(point) != 2:
-        raise BuildError(f"Posição do Finder precisa de duas coordenadas: {text!r}")
-    return point
-
-
-def parse_snapshot(text):
-    result = {}
-    for field in text.split(";"):
-        key, separator, value = field.partition("=")
-        if not separator or key in result:
-            raise BuildError(f"Snapshot Finder inválido/duplicado: {text!r}")
-        result[key] = value
-    if set(result) != SNAPSHOT_KEYS:
-        raise BuildError(f"Snapshot Finder incompleto: {text!r}")
-    result["bounds"] = read_rectangle(result["bounds"])
-    for key in ("app", "applications", "folder_app", "folder_applications"):
-        result[key] = None if result[key] == "n/a" else read_point(result[key])
-    for key in EXPECTED_OPTIONS:
-        try:
-            result[key] = int(result[key])
-        except ValueError as error:
-            raise BuildError(f"Opção Finder inválida: {key}={result[key]!r}") from error
-    return result
-
-
-def snapshot_mismatches(snapshot, phase):
-    failures = []
-    rectangle = snapshot["bounds"]
-    size = (rectangle[2] - rectangle[0], rectangle[3] - rectangle[1])
-    if size != EXPECTED_SIZE:
-        failures.append(f"{phase}: dimensão atual={size[0]}x{size[1]}, esperado=640x502 nas coordenadas bounds")
-    for key, expected in EXPECTED_POSITIONS.items():
-        if snapshot[key] != expected:
-            failures.append(f"{phase}: posição {key} atual={snapshot[key]}, esperado={expected}")
-    for key, expected in EXPECTED_OPTIONS.items():
-        if snapshot[key] != expected:
-            failures.append(f"{phase}: {key} atual={snapshot[key]}, esperado={expected}")
-    return failures
-
-
-def validate_layout_report(output, mode):
-    fields = output.decode(errors="replace").strip().split("\t")
-    if len(fields) != 5 or fields[:3] != ["OK", "v2", mode] or mode not in ("configure", "verify"):
-        raise BuildError(f"Finder[{mode}] relatório v2 inválido: {output!r}")
-    after_set = None if fields[3] == "n/a" else parse_snapshot(fields[3])
-    after_reopen = parse_snapshot(fields[4])
-    report = (f"pedido bounds={EXPECTED_BOUNDS}, app={EXPECTED_POSITIONS['app']}, Applications={EXPECTED_POSITIONS['applications']}; "
-              f"após definir={json.dumps(after_set, ensure_ascii=False, sort_keys=True)}; "
-              f"após reabrir={json.dumps(after_reopen, ensure_ascii=False, sort_keys=True)}; origem de tela pode mudar")
-    if (mode == "configure" and after_set is None) or (mode == "verify" and after_set is not None):
-        raise BuildError(f"Finder[{mode}] fase/leitura inesperada; {report}")
-    failures = []
-    if after_set is not None:
-        failures.extend(snapshot_mismatches(after_set, "configure:after-set"))
-    failures.extend(snapshot_mismatches(after_reopen, mode + ":after-reopen"))
-    if failures:
-        raise BuildError("Layout divergente: " + " | ".join(failures) + ". " + report
-                         + ". Sem tolerância de posição/tamanho nem compensação presumida de chrome. Copie este diagnóstico completo.")
-    return report
-
-
-def finder_layout(mode, mount, script):
-    try:
-        result = run(["/usr/bin/osascript", script, mode, mount.path], timeout=90)
-        report = validate_layout_report(result, mode)
-    except BuildError as error:
-        raise BuildError(f"Fase Finder={mode}, mount={mount.path}: {error}") from error
-    print(f"Finder[{mode}] {report}")
-
-
-def wait_for_store(mount, timeout=10, clock=time.monotonic, pause=time.sleep):
-    deadline = clock() + timeout
-    previous, stable = None, 0
-    while clock() < deadline:
-        try:
-            stat = (mount.path / ".DS_Store").stat()
-            fingerprint = (stat.st_size, stat.st_mtime_ns) if stat.st_size > 0 else None
-        except FileNotFoundError:
-            fingerprint = None
-        stable = stable + 1 if fingerprint is not None and fingerprint == previous else 0
-        if stable >= 3:
-            return
-        previous = fingerprint
-        pause(0.2)
-    raise BuildError(f"Finder[configure:DS_Store] metadados não estabilizaram em {timeout}s: {mount.path}")
+        report = write_layout(mount.path) if mode == "write" else verify_layout(mount.path)
+    except (MetadataError, OSError, ValueError) as error:
+        raise BuildError(f"Layout metadata[{mode}], mount={mount.path}: {error}") from error
+    print(f"Layout metadata[{mode}] " + json.dumps(report, ensure_ascii=False))
+    return report["sha256"]
 
 
 def verify_contents(mount, background):
@@ -207,12 +102,12 @@ def verify_contents(mount, background):
         raise BuildError("Applications não aponta para /Applications.")
     store = mount.path / ".DS_Store"
     if not store.is_file() or store.stat().st_size == 0:
-        raise BuildError("Finder não gravou .DS_Store. Recusando DMG sem layout persistido.")
+        raise BuildError(".DS_Store ausente/vazio. Recusando DMG sem layout persistido.")
     if (mount.path / ".background/background.png").read_bytes() != background.read_bytes():
         raise BuildError("Fundo do volume difere do asset aprovado.")
 
 
-def build(app, background, output, script):
+def build(app, background, output):
     if output.exists() or output.is_symlink():
         raise BuildError(f"DMG já existe; arquive-o antes de reconstruir: {output}")
     if not app.is_dir() or app.is_symlink():
@@ -234,8 +129,7 @@ def build(app, background, output, script):
         editable_mount = OwnedMount(writable, work / "mount-rw")
         owned.append(editable_mount) # track before attach, including partial attach failure
         attach(editable_mount, readonly=False)
-        finder_layout("configure", editable_mount, script)
-        wait_for_store(editable_mount)
+        layout_digest = image_layout("write", editable_mount)
         verify_contents(editable_mount, background)
         detach(editable_mount)
         compressed = work / "ready.dmg"
@@ -246,7 +140,9 @@ def build(app, background, output, script):
         attach(readonly_mount, readonly=True)
         verify_contents(readonly_mount, background)
         run(["/usr/bin/codesign", "--verify", "--deep", "--strict", readonly_mount.path / "Remote Mouse.app"])
-        finder_layout("verify", readonly_mount, script) # no rewriting on this mount
+        final_digest = image_layout("verify", readonly_mount) # binary reads only; no Finder cache
+        if final_digest != layout_digest:
+            raise BuildError(".DS_Store da montagem somente leitura difere do layout gravado; recusando publicar.")
         detach(readonly_mount)
         identity = os.environ.get("CODESIGN_IDENTITY", "")
         if identity and identity != "-":
@@ -254,7 +150,7 @@ def build(app, background, output, script):
         run(["/usr/bin/hdiutil", "verify", compressed], timeout=600)
         # Atomic no-overwrite publication on the same filesystem, after all checks.
         os.link(compressed, output)
-        print(f"DMG gerado: {output} (layout verificado; não implica notarização)")
+        print(f"DMG gerado: {output} (metadados somente leitura verificados; não implica notarização)")
     finally:
         primary_error = sys.exc_info()[1]
         cleanup_errors = []
@@ -281,9 +177,8 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if sys.platform != "darwin":
-        raise BuildError("A geração com layout exige macOS e uma sessão gráfica do Finder.")
-    build(args.app.resolve(), args.background.resolve(), args.output.absolute(),
-          Path(__file__).with_name("dmg-layout.applescript").resolve())
+        raise BuildError("A geração exige macOS para hdiutil e a identidade nativa do Alias. Finder não é automatizado.")
+    build(args.app.resolve(), args.background.resolve(), args.output.absolute())
 
 
 if __name__ == "__main__":

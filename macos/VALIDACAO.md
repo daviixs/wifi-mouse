@@ -1,5 +1,24 @@
 # Estado da validação desta entrega
 
+## Layout binário: substituição pontual do estágio Finder (base df98a7d)
+
+**Evidência real recebida:** bounds invariáveis, y240 após set e y253 para ambos os ícones após reopen; seletores de pasta/janela concordam. Assim, contexto de seletor não explicou a falha. `background=0` ocorreu antes de reopen, mas o código anterior escondia exceção de leitura/coerção e comparação negativa de alias no mesmo valor. Causa exata desse zero e origem nativa dos 13 pontos **não demonstradas**; não se atribui a título/scroll/label sem prova.
+
+**Estratégia:** parar de variar AppleScript/compensações. Substituído apenas o estágio de escrita/leitura do layout pelo formato e codecs do dmgbuild. ds_store 1.3.1/mac_alias 2.2.2 vêm em wheels oficiais Python puros, com SHA-256 e MIT; sem instalação/rede durante build e compatíveis com o Python 3.9 de CLT. Pipeline hdiutil/cópia/assinatura/limpeza preservado. Script AppleScript e parser de snapshots removidos porque não fazem mais parte do build.
+
+Modelo: retângulo nominal 640×480 nos metadados (não bounds AppleScript +22), Iloc (170,240)/(470,240), icon72/text12, scroll/grid offset zero, grid spacing 80 dentro do limite documentado, sem arrange/barras/sidebar. Alias criado com identidade nativa do arquivo e volume; destino estritamente relativo `.background/background.png`, sem dica de mountpoint ou imagem do host. Verificação na montagem final somente leitura exige todos os valores, identidade real do Alias, PNG byte a byte e SHA-256 idêntico de `.DS_Store`. Não se relaxou posição para aceitar +13.
+
+Executado em Linux:
+
+- **11 testes de metadados binários reais**: roundtrip codecs/arquivos, centros/conteúdo, deslocamento um ponto e +13 rejeitados, opções estritas, erros agregados, Alias malformado/volume/CNID/caminho/hint incorretos, falta de registro, arquivo corrupto, symlink, relocalização e leitura sem modificar bytes/mtime. Identidade nativa usa fixture explícita; não é uma integração Apple.
+- **10 testes de orquestração/safety**, com ferramentas Apple simuladas, incluindo não publicação se o hash da montagem readonly mudar e limpeza segura.
+- **12 testes resources**, checker **45×3 idiomas**, sintaxe Python/shell e diff: passaram.
+- `npm run lint`, `npm run typecheck` e `npm run test:motion` (**39 testes**): passaram.
+
+**Não executado:** Alias.for_file no macOS, hdiutil/DMG real, assinatura nativa e renderização do Finder. Não se afirma causa nativa definitivamente provada nem build macOS certificado. O novo caminho evita as duas operações AppleScript problemáticas; seu resultado visual ainda deve ser confirmado uma vez no Mac. Não houve comandos no Mac, CloudAgent, clone, push ou PR, nem alterações de app/Rust/assets.
+
+As seções abaixo registram entregas históricas, supersedidas no estágio de layout por esta implementação.
+
 ## Correção/diagnóstico incremental: posições dos ícones
 
 Base incremental: último bounds-fix `786c0f0`. O log nativo fornecido confirma bounds `{120,120,760,622}` após definir/reabrir; **não registra posições dos ícones**. Portanto não existe evidência suficiente para atribuir definitivamente a falha a coerção, seletor de pasta/janela, canvas, ordenação ou gravação de `.DS_Store`.
