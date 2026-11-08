@@ -1,5 +1,17 @@
 # Estado da validação desta entrega
 
+## Incremento: fundo branco e tamanho inicial do DMG
+
+- Asset aprovado copiado byte a byte (`background-source.jpg`, dimensões reais 1152×864, SHA256 `7ff8e3987383ebfe6a363c767c522350b02281526e8d583cd7e08ca5023e8c26`). PNG 640×480 gerado e decodificado/verificado com Pillow na box; Pillow não é dependência do build no Mac.
+- Layout implementado por Finder/AppleScript, imagem gravável privada, `.DS_Store` nativo, conversão UDZO e verificação em nova montagem somente leitura antes de publicar. Bounds externos 640×502, fundo/área útil nominal 640×480, ícones 72 e nomes 12. Finder continua redimensionável.
+- `python3 macos/scripts/test_dmg_layout.py`: **9 testes passaram**, todos portáveis. Testam dimensões, propriedade/escopo de montagens, preservação de DMG anterior, conteúdo visível, fluxo de remontagem/verificação, não publicação em falha de layout, timeout e preservação de temporários se não puder desmontar. Comandos Apple e metadados são simulados nesses testes, não constituem um teste de DMG real.
+- `bash -n macos/scripts/*.sh` e compilação sintática Python dos scripts: passaram.
+- `python3 macos/scripts/check-resources.py`: passou (45 chaves × 3 idiomas; integração de resources existente preservada).
+- Alterações limitadas a assets, scripts de empacotamento/testes e documentação. Não foram repetidas as suítes mobile/Rust desta vez; app SwiftUI, protocolo e agente não mudaram.
+
+**Limitação:** `osascript`/Finder/`hdiutil` não existem nesta box Linux. AppleScript não foi compilado aqui; comportamento nativo, persistência real após remontagem e distribuição, bounds sob diferentes telas/chrome e assinatura final precisam ser validados no Mac. Não foi gerado DMG, não houve automação/comandos no Mac do proprietário, nem alteração das permissões de Automação/Acessibilidade. O script se recusa a publicar quando sua validação nativa falha.
+
+
 ## Incremento: overlay de Acessibilidade e idiomas
 
 Implementado após o fix de ownership `efa5daa`: bloqueio fail-closed até confirmação real do helper, consultas curtas sem servidor, concessão/revogação automáticas, parada do próprio servidor na perda da autorização, CTA de ajustes/Finder e saída sempre acessíveis; pt-BR/en/es automáticos, resources SwiftPM explicitamente copiados para o bundle e `InfoPlist.strings` localizados; rolagem preservada sem indicadores.

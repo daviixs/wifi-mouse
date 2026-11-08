@@ -9,14 +9,8 @@ APP="$OUT/Remote Mouse.app"
 DMG="$OUT/Remote-Mouse-$ARCH.dmg"
 [[ -d "$APP" ]] || { echo "Gere o app primeiro: macos/scripts/build-app.sh $ARCH" >&2; exit 1; }
 [[ ! -e "$DMG" ]] || { echo "O DMG já existe. Mova-o antes de gerar novamente: $DMG" >&2; exit 1; }
-codesign --verify --deep --strict "$APP"
-STAGE="$(mktemp -d "$OUT/dmg.XXXXXX")"
-trap 'rm -rf "$STAGE"' EXIT
-ditto "$APP" "$STAGE/Remote Mouse.app"
-ln -s /Applications "$STAGE/Applications"
-hdiutil create -volname "Remote Mouse" -srcfolder "$STAGE" -format UDZO "$DMG"
-if [[ -n "${CODESIGN_IDENTITY:-}" && "$CODESIGN_IDENTITY" != - ]]; then
-  codesign --force --timestamp --sign "$CODESIGN_IDENTITY" "$DMG"
-fi
-hdiutil verify "$DMG"
-printf '\nDMG gerado (não implica notarização): %s\n' "$DMG"
+for tool in python3 hdiutil codesign ditto osascript; do
+  command -v "$tool" >/dev/null || { echo "Erro: ferramenta ausente: $tool" >&2; exit 1; }
+done
+python3 "$ROOT/macos/scripts/create-dmg.py" \
+  --app "$APP" --background "$ROOT/macos/Resources/dmg/background.png" --output "$DMG"

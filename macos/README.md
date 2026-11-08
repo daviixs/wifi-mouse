@@ -81,6 +81,54 @@ O script gera assinatura ad-hoc (`-`) por padrão, útil para desenvolvimento; i
 
 Bundles anteriores são preservados com sufixo `previous.<data-hora>` (hora local do Mac). DMG existente não é sobrescrito: mova-o antes de gerar outro.
 
+## Janela do instalador DMG
+
+O fundo branco minimalista aprovado está em `macos/Resources/dmg/`. O original JPEG (1152×864) é preservado, e a imagem pronta para o Finder mede **640×480**. O instalador usa área útil nominal 640×480 e bounds iniciais do Finder **{120,120,760,622}**: janela externa de **640×502** pontos, reservando aproximadamente 22 pontos para o título. O chrome/escala do macOS pode variar ligeiramente; a legenda e os ornamentos têm margem.
+
+Ícones: app à esquerda em **(170,240)**, Applications à direita em **(470,240)**, alinhados à seta central; tamanho **72**, nomes **12**, labels embaixo. Visualização por ícones, sem organização automática, sem toolbar/sidebar/status bar. Apenas app e Applications são itens visíveis na visualização normal; o fundo fica em `.background/` e os metadados em `.DS_Store`. A preferência pessoal de exibir arquivos ocultos continua sob controle do usuário.
+
+**Isto define/persiste o tamanho e as posições iniciais, não trava o resize do Finder.** O usuário ainda pode redimensionar, mover a janela e mudar a visualização; o Finder pode lembrar escolhas anteriores ou adaptar a janela à tela. Nenhuma preferência global do Finder é alterada.
+
+### Reconstruir apenas o DMG, com o .app já existente
+
+Requisitos adicionais para o layout: **Python 3**, ferramentas Apple `hdiutil`, `ditto`, `codesign`, `osascript` e uma sessão gráfica do Finder aberta. Não há pacote pip/npm/Homebrew a instalar. Este comando não recompila Swift/Rust nem modifica o app original.
+
+Na raiz do repositório:
+
+```bash
+ARCH=arm64  # Apple Silicon; para Intel use ARCH=x86_64
+DMG="macos/dist/$ARCH/Remote-Mouse-$ARCH.dmg"
+# Preserva o DMG anterior em uma pasta nova, sem apagar ou sobrescrever:
+if [ -e "$DMG" ] || [ -L "$DMG" ]; then
+  ARCHIVE="$(mktemp -d "macos/dist/$ARCH/dmg-anterior.XXXXXX")"
+  mv "$DMG" "$ARCHIVE/"
+fi
+macos/scripts/build-dmg.sh "$ARCH"
+```
+
+O app precisa existir em `macos/dist/$ARCH/Remote Mouse.app`. O resultado novo fica no mesmo diretório, como `Remote-Mouse-arm64.dmg` ou `Remote-Mouse-x86_64.dmg`. Pode-se reconstruir um DMG Intel a partir do app Intel existente em um Mac Apple Silicon (e vice-versa); empacotar não executa o aplicativo. Para recriar também o aplicativo, rode `macos/scripts/build-app.sh "$ARCH"` antes do build do DMG.
+
+Para assinar o novo container, mantenha `CODESIGN_IDENTITY` com sua identidade Developer ID, como na seção de assinatura. A assinatura do app copiado é preservada/verificada; o novo DMG precisa de **nova notarização/staple**, mesmo que um DMG anterior já tenha sido notarizado.
+
+### Como o layout é persistido e validado
+
+`build-dmg.sh` chama `create-dmg.py` (biblioteca padrão). É criado um workspace único e uma imagem HFS+ gravável. O Finder grava o layout real por `dmg-layout.applescript`; não são fabricados bytes de `.DS_Store`. O fundo é um arquivo do próprio volume, referenciado por alias relativo à raiz desse volume, não uma string com o caminho temporário do host.
+
+Depois de fechar a janela, o build aguarda `.DS_Store`, desmonta sua imagem, converte para **UDZO somente leitura**, monta novamente em **outro mountpoint privado**, e verifica no Finder tamanho, visualização, barras, posições, nomes e fundo **sem reaplicar configurações**. Somente após essas verificações, desmontagem, assinatura opcional e `hdiutil verify` o arquivo final é publicado atomicamente, sem sobrescrever destino existente.
+
+O macOS pode pedir autorização para o Terminal/host de build controlar o **Finder** em **Privacidade e Segurança → Automação**. Isso é separado da Acessibilidade do app Remote Mouse. Se negar, se não houver sessão gráfica, ou se a automação/layout falhar, o build termina com erro; não produz silenciosamente um DMG com layout padrão. Apple Events têm timeout de 60 segundos e `osascript` tem limite total de 90 segundos. Não há UI scripting, alteração de TCC, desativação de proteções ou execução como administrador.
+
+Limpeza verifica o caminho da imagem e o mountpoint específico criados por esta execução; nunca ejeta por nome de volume, não usa unmount forçado e não toca discos alheios. Se não puder confirmar a desmontagem, preserva o workspace indicado no erro em vez de remover uma pasta que ainda pode conter volume montado. Resolva essa montagem antes de remover seus temporários manualmente.
+
+Testes portáveis (não substituem Finder real):
+
+```bash
+python3 macos/scripts/test_dmg_layout.py
+bash -n macos/scripts/build-dmg.sh
+```
+
+Checklist obrigatório no Mac: gerar, ejetar e abrir o DMG final pelo Finder, confirmar fundo/ícones/bounds e somente dois itens visíveis; testar em outra pasta/Mac sem o workspace; arrastar para Applications; verificar que nenhum volume temporário ficou montado. O build aqui foi escrito/testado em Linux com mocks dos comandos Apple: **nenhum DMG real nem AppleScript/Finder runtime foi executado nesta box**.
+
 ## Primeira execução e permissões
 
 1. Abra o DMG e arraste **Remote Mouse** para **Applications**. Ejete o DMG e execute a cópia instalada (não a cópia montada no DMG).
