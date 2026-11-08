@@ -48,7 +48,7 @@ mDNS disponível significa que a biblioteca aceitou o anúncio; não é confirma
 
 - macOS 13+; Xcode ou Command Line Tools com SDK macOS e Swift 5.9+ (Xcode 15+ recomendado).
 - Rust/Cargo 1.87+ e `rustup` (a dependência do agente requer essa versão).
-- `python3` apenas para o smoke test opcional.
+- Python 3 para validação estrita dos resources no build/testes e para os scripts de DMG/smoke (biblioteca padrão; sem pacotes pip).
 
 Os scripts usam apenas ferramentas Apple e Cargo; não exigem Homebrew, Tauri, Electron ou XcodeGen. É um projeto Swift Package: abra `macos/RemoteMouse/Package.swift` no Xcode para editar. **Para executar como app de barra de menus, use o bundle produzido pelo script**, não `swift run` nem o executável solto do Xcode: eles não têm o helper/Info.plist empacotados.
 
@@ -76,6 +76,30 @@ Saídas:
 - ou os mesmos caminhos em `macos/dist/x86_64/` para Intel.
 
 Cada pacote leva **UI e Rust da mesma arquitetura**, verificados com `lipo`. Não é um universal binary. O build permite gerar a outra arquitetura no Mac, desde que o target Rust esteja instalado. Testes `swift test`/`cargo test` executam na arquitetura do host.
+
+### Validação dos bundles de idiomas
+
+A estrutura interna de um resource bundle depende do backend do SwiftPM. O backend native pode produzir `RemoteMouse_RemoteMouse.bundle/pt-br.lproj/Localizable.strings`; o SwiftBuild/macOS também produz `RemoteMouse_RemoteMouse.bundle/Contents/Resources/pt-br.lproj/Localizable.strings`. O nome de idioma pode ser normalizado para minúsculas. Isso não indica perda da tradução.
+
+O erro antigo **“Erro: tradução ausente: pt-BR”** vinha do próprio `build-app.sh`: seu guard examinava apenas `.lproj` diretamente abaixo de `.bundle`. Ele já aceitava `pt-br` e `pt-BR`; trocar apenas a caixa não corrigia o layout aninhado. O guard rodava depois do build Swift e antes de finalizar/assinar o `.app`, portanto esse erro não vinha do `build-dmg.sh` e interrompia a cadeia `&&` antes de gerar o DMG.
+
+Agora `bundle_resources.py` resolve os layouts flat e `Contents/Resources`, normaliza caixa e `_`/`-` do idioma, e verifica **todas as chaves e todos os valores** de pt-BR/en/es contra as fontes. Aceita `.strings` texto e plist binário/XML; em macOS usa o `plutil` nativo para formatos OpenStep/UTF-16. Tradução realmente ausente, desatualizada, ambígua ou com link externo continua sendo erro, com a raiz efetiva e os locais encontrados na mensagem.
+
+O bundle inteiro é copiado sem mudar a hierarquia e validado novamente **no staging do app**, antes da assinatura. O smoke test usa o mesmo resolvedor. No runtime Swift, o diretório efetivo vem de `Bundle.resourceURL`, em vez de pressupor uma estrutura física ou depender de um diretório `.build` antigo.
+
+Fixture de regressão reproduz a estrutura macOS SwiftBuild com `Contents/Resources/pt-br.lproj` e comprova que o guard antigo falhava mesmo com a tradução presente. Também cobre o bundle flat, nomes normalizados e tabelas compiladas; não é uma captura do computador do proprietário.
+
+Referências públicas: [SwiftPM — Bundling resources](https://docs.swift.org/latest/documentation/packagemanagerdocs/bundlingresources/) e [teste funcional oficial que distingue native vs SwiftBuild](https://github.com/swiftlang/swift-package-manager/blob/5f6d79f6100d294948c3343f72c3472df26a697e/Tests/FunctionalTests/ResourcesTests.swift).
+
+Para verificar somente um bundle existente (substitua o caminho pelo exibido pelo build):
+
+```bash
+python3 macos/scripts/bundle_resources.py /caminho/RemoteMouse_RemoteMouse.bundle \
+  --source macos/RemoteMouse/Sources/RemoteMouse/Resources
+python3 macos/scripts/test_bundle_resources.py
+```
+
+Após aplicar o patch de correção, retome `macos/scripts/test.sh && macos/scripts/build-app.sh arm64 && macos/scripts/build-dmg.sh arm64`. Não é necessário apagar `.build`, mudar o manifest de idiomas nem remover validações. Se já houver DMG anterior, arquive-o conforme a seção do instalador antes de gerar outro.
 
 O script gera assinatura ad-hoc (`-`) por padrão, útil para desenvolvimento; isso **não** torna o app confiável pelo Gatekeeper. Para testes locais, copie o app para `/Applications`, abra-o pelo Finder e, se o macOS bloquear, confira **Ajustes do Sistema → Privacidade e Segurança → Abrir Mesmo Assim**, somente se reconhecer sua própria compilação. Não desative o Gatekeeper nem remova quarentena em massa.
 

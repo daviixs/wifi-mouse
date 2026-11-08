@@ -8,7 +8,7 @@ case "$ARCH" in
   x86_64) RUST_TARGET=x86_64-apple-darwin ;;
   *) echo "Uso: $0 [arm64|x86_64]" >&2; exit 1 ;;
 esac
-for tool in cargo rustup swift xcrun codesign iconutil sips; do
+for tool in cargo rustup swift xcrun codesign iconutil sips python3; do
   command -v "$tool" >/dev/null || { echo "Erro: ferramenta ausente: $tool" >&2; exit 1; }
 done
 xcrun --sdk macosx --show-sdk-path >/dev/null
@@ -32,10 +32,14 @@ BIN="$(swift build --package-path "$ROOT/macos/RemoteMouse" --configuration rele
 cp "$BIN/RemoteMouse" "$BUNDLE/Contents/MacOS/RemoteMouse"
 RESOURCES="$BIN/RemoteMouse_RemoteMouse.bundle"
 [[ -d "$RESOURCES" ]] || { echo "Erro: bundle de traduções SwiftPM ausente: $RESOURCES" >&2; exit 1; }
+LOCALE_SOURCE="$ROOT/macos/RemoteMouse/Sources/RemoteMouse/Resources"
+# SwiftPM native bundles can be flat; SwiftBuild/Xcode bundles use Contents/Resources.
+# Validate values, not a guessed folder path, before and after copying unchanged.
+python3 "$ROOT/macos/scripts/bundle_resources.py" "$RESOURCES" --source "$LOCALE_SOURCE"
 ditto "$RESOURCES" "$BUNDLE/Contents/Resources/RemoteMouse_RemoteMouse.bundle"
+python3 "$ROOT/macos/scripts/bundle_resources.py" \
+  "$BUNDLE/Contents/Resources/RemoteMouse_RemoteMouse.bundle" --source "$LOCALE_SOURCE"
 for language in pt-BR en es; do
-  language_dir="$(printf '%s' "$language" | /usr/bin/tr '[:upper:]' '[:lower:]')"
-  [[ -f "$RESOURCES/$language_dir.lproj/Localizable.strings" || -f "$RESOURCES/$language.lproj/Localizable.strings" ]] || { echo "Erro: tradução ausente: $language" >&2; exit 1; }
   ditto "$ROOT/macos/Resources/$language.lproj" "$BUNDLE/Contents/Resources/$language.lproj"
 done
 cp "$ROOT/rust-agent/target/$RUST_TARGET/release/remote-mouse-agent" "$BUNDLE/Contents/MacOS/remote-mouse-agent"

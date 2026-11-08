@@ -1,3 +1,4 @@
+import Foundation
 import XCTest
 @testable import RemoteMouse
 
@@ -41,4 +42,30 @@ final class LocalizationAndPermissionTests: XCTestCase {
         XCTAssertFalse(state.isBlocking)
         XCTAssertNil(state.problem)
     }
+    func testFoundationResolvesFlatAndSwiftBuildResourceRoots() throws {
+        let manager = FileManager.default
+        let temporary = manager.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try manager.createDirectory(at: temporary, withIntermediateDirectories: true)
+        defer { try? manager.removeItem(at: temporary) }
+        for deep in [false, true] {
+            for spelling in ["pt-br", "pt-BR", "pt_BR"] {
+                let bundleURL = temporary.appendingPathComponent(UUID().uuidString + ".bundle")
+                let root = deep ? bundleURL.appendingPathComponent("Contents/Resources") : bundleURL
+                let locale = root.appendingPathComponent(spelling + ".lproj")
+                try manager.createDirectory(at: locale, withIntermediateDirectories: true)
+                let infoURL = deep ? bundleURL.appendingPathComponent("Contents/Info.plist")
+                    : bundleURL.appendingPathComponent("Info.plist")
+                let info: [String: String] = ["CFBundleDevelopmentRegion": "en", "CFBundlePackageType": "BNDL"]
+                try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0).write(to: infoURL)
+                let table = ["fixture.quit": "Sair"]
+                try PropertyListSerialization.data(fromPropertyList: table, format: .binary, options: 0)
+                    .write(to: locale.appendingPathComponent("Localizable.strings"))
+                let resources = try XCTUnwrap(Bundle(url: bundleURL))
+                let localized = try XCTUnwrap(L10n.localizedBundle("pt-BR", in: resources))
+                XCTAssertNil(L10n.localizedBundle("es", in: resources)) // do not fall back to another language
+                XCTAssertEqual(localized.localizedString(forKey: "fixture.quit", value: nil, table: "Localizable"), "Sair")
+            }
+        }
+    }
+
 }

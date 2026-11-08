@@ -9,6 +9,7 @@ import socket
 import subprocess
 import sys
 import time
+from bundle_resources import validate_bundle
 
 
 def launch(binary, port):
@@ -64,10 +65,9 @@ def main():
     with (app / "Contents/Info.plist").open("rb") as file:
         info = plistlib.load(file)
     assert set(info["CFBundleLocalizations"]) == {"pt-BR", "en", "es"}
+    source = Path(__file__).resolve().parents[1] / "RemoteMouse/Sources/RemoteMouse/Resources"
+    validate_bundle(resources / "RemoteMouse_RemoteMouse.bundle", source)
     for language in ("pt-BR", "en", "es"):
-        bundle = resources / "RemoteMouse_RemoteMouse.bundle"
-        assert any((bundle / f"{code}.lproj/Localizable.strings").is_file()
-                   for code in (language, language.lower())), f"Missing app translation: {language}"
         assert (resources / f"{language}.lproj/InfoPlist.strings").is_file()
 
     # Invalid bind proves check-only returns before server configuration/startup.

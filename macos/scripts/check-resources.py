@@ -1,26 +1,12 @@
 #!/usr/bin/env python3
 """Checks source translations/packaging declarations; does not claim a native build."""
-import json
 from pathlib import Path
 import plistlib
 import re
+from bundle_resources import LANGUAGES, read_strings as strings
 
 ROOT = Path(__file__).resolve().parents[2]
-LANGUAGES = ("pt-BR", "en", "es")
 SOURCE = ROOT / "macos/RemoteMouse/Sources/RemoteMouse"
-PAIR = re.compile(r'("(?:\\.|[^"\\])*")\s*=\s*("(?:\\.|[^"\\])*");')
-
-
-def strings(path):
-    text = path.read_text()
-    result = {}
-    for match in PAIR.finditer(text):
-        key, value = (json.loads(part) for part in match.groups())
-        assert key not in result, f"Duplicate key: {path}: {key}"
-        result[key] = value
-    assert PAIR.sub("", text).strip() == "", f"Unparsed strings content: {path}"
-    assert result, f"Empty translation table: {path}"
-    return result
 
 
 def main():
@@ -45,6 +31,8 @@ def main():
     assert 'defaultLocalization: "en"' in manifest and '.process("Resources")' in manifest
     build = (ROOT / "macos/scripts/build-app.sh").read_text()
     assert 'ditto "$RESOURCES" "$BUNDLE/Contents/Resources/RemoteMouse_RemoteMouse.bundle"' in build
+    assert build.count('python3 "$ROOT/macos/scripts/bundle_resources.py"') == 2
+    assert '"$RESOURCES/$language_dir.lproj/Localizable.strings"' not in build
     main_rs = (ROOT / "rust-agent/src/main.rs").read_text()
     assert main_rs.index("desktop::check_permission_mode()") < main_rs.index("TcpListener::bind") < main_rs.index("Enigo::new")
     print(f"OK: {len(expected)} keys × 3 languages, format arguments, localized privacy text, packaging declarations and early check-only guard.")

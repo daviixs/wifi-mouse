@@ -1,5 +1,16 @@
 # Estado da validação desta entrega
 
+## Correção incremental: falso “tradução ausente: pt-BR”
+
+Origem rastreada em `build-app.sh`: verificação física exclusivamente na raiz do `.bundle`, depois de `swift build`. A caixa já era tratada (`pt-br` e `pt-BR`). Uma fixture com o layout SwiftBuild macOS documentado (`Contents/Resources/pt-br.lproj/Localizable.strings`) reproduziu o falso negativo do guard antigo, enquanto o novo resolvedor encontrou e validou as 45 chaves. As fontes pt-BR/en/es e o manifest `.process`/`defaultLocalization` estão presentes/corretos.
+
+O backend SwiftPM native pode gerar bundle flat, e SwiftBuild usa layout macOS aninhado conforme testes funcionais oficiais citados no README. Não foi lido o bundle real do Mac do proprietário; não se afirma uma observação remota do backend/caminho dele. O defeito concreto do guard foi reproduzido localmente com os dois formatos válidos.
+
+Correção: resolvedor/validador compartilhado para build, source validator e smoke; validação integral contra as fontes antes/depois da cópia; tabelas texto/compiladas e nomes de idioma normalizados; erros reais não recebem fallback inglês. Runtime Swift usa `Bundle.resourceURL` e recebeu teste XCTest com bundles flat/aninhado.
+
+Validação Linux: 12 testes novos de fixtures passaram (incluindo chamada simulada ao plutil para UTF-16); 9 testes portáveis de DMG passaram; checker das 45 chaves × 3 idiomas passou; sintaxe Python e shell passou. Testes nativos Swift/Foundation foram escritos mas não executados nesta box sem Swift/SDK macOS. Nenhum build `.app`/DMG nem runtime de Finder/TCC foi executado no Mac. Também passaram `npm run lint`, `npm run typecheck`, `npm test` e `npm run test:motion` (39 testes por execução da suíte), além de `cargo check --locked --all-targets --target aarch64-apple-darwin` no código Rust real. O check Rust é metadata/typecheck sem link/execução Apple.
+
+
 ## Incremento: fundo branco e tamanho inicial do DMG
 
 - Asset aprovado copiado byte a byte (`background-source.jpg`, dimensões reais 1152×864, SHA256 `7ff8e3987383ebfe6a363c767c522350b02281526e8d583cd7e08ca5023e8c26`). PNG 640×480 gerado e decodificado/verificado com Pillow na box; Pillow não é dependência do build no Mac.

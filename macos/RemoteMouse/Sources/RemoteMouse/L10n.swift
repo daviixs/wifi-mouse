@@ -27,10 +27,26 @@ enum L10n {
         return "en"
     }
 
+    static func normalizedLanguage(_ value: String) -> String {
+        value.replacingOccurrences(of: "_", with: "-").lowercased()
+    }
+
+    static func localizedBundle(_ language: String, in resourceBundle: Bundle) -> Bundle? {
+        // Foundation resolves flat/native and Contents/Resources/SwiftBuild layouts.
+        guard let root = resourceBundle.resourceURL,
+              let children = try? FileManager.default.contentsOfDirectory(
+                at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
+              ) else { return nil }
+        let candidates = children.filter {
+            $0.pathExtension.lowercased() == "lproj"
+                && normalizedLanguage($0.deletingPathExtension().lastPathComponent) == normalizedLanguage(language)
+        }
+        guard candidates.count == 1 else { return nil }
+        return Bundle(url: candidates[0])
+    }
+
     static func value(_ key: String, language: String) -> String {
-        guard let url = resources.url(forResource: language.lowercased(), withExtension: "lproj")
-                ?? resources.url(forResource: language, withExtension: "lproj"),
-              let bundle = Bundle(url: url) else { return key }
+        guard let bundle = localizedBundle(language, in: resources) else { return key }
         return bundle.localizedString(forKey: key, value: key, table: "Localizable")
     }
 
