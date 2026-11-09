@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Modelo do manifesto MSIX: windows/scripts/package-msix.ps1 substitui os
+  marcadores de Identity, PublisherDisplayName, versão e arquitetura.
+  Para a Microsoft Store, passe ao script os valores exatos de Partner Center →
+  seu app → Product management → Product identity:
+    -IdentityName          = Package/Identity/Name
+    -Publisher             = Package/Identity/Publisher (CN=...)
+    -PublisherDisplayName  = Package/Properties/PublisherDisplayName
+    -DisplayName           = nome reservado do app (precisa ser idêntico)
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:desktop2="http://schemas.microsoft.com/appx/manifest/desktop/windows10/2"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap desktop2 rescap">
+
+  <Identity
+    Name="__IDENTITY_NAME__"
+    Publisher="__PUBLISHER__"
+    Version="__VERSION__"
+    ProcessorArchitecture="__ARCH__" />
+
+  <Properties>
+    <DisplayName>__DISPLAY_NAME__</DisplayName>
+    <PublisherDisplayName>__PUBLISHER_DISPLAY_NAME__</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <Description>Use o celular como mouse e teclado do PC pela rede Wi-Fi.</Description>
+  </Properties>
+
+  <Dependencies>
+    <!-- Windows 10 1809 ou superior (inclui Windows 11). -->
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="pt-BR" />
+    <Resource Language="en-US" />
+    <Resource Language="es-ES" />
+  </Resources>
+
+  <Applications>
+    <Application Id="RemoteMouse" Executable="RemoteMouse.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="__DISPLAY_NAME__"
+        Description="Use o celular como mouse e teclado do PC pela rede Wi-Fi."
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile
+          Wide310x150Logo="Assets\Wide310x150Logo.png"
+          Square71x71Logo="Assets\SmallTile.png"
+          Square310x310Logo="Assets\LargeTile.png"
+          ShortName="__DISPLAY_NAME__" />
+        <uap:SplashScreen Image="Assets\SplashScreen.png" BackgroundColor="#101211" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Extensions>
+    <!--
+      Regras de firewall instaladas com o pacote: evita o diálogo
+      "Permitir acesso" na primeira execução. Somente redes de domínio/privadas;
+      em rede pública o Windows continua bloqueando (comportamento seguro).
+    -->
+    <desktop2:Extension Category="windows.firewallRules">
+      <desktop2:FirewallRules Executable="RemoteMouse.exe">
+        <desktop2:Rule Direction="in" IPProtocol="TCP" Profile="domainAndPrivate" LocalPortMin="8765" LocalPortMax="8765" />
+        <desktop2:Rule Direction="in" IPProtocol="UDP" Profile="domainAndPrivate" LocalPortMin="5353" LocalPortMax="5353" />
+      </desktop2:FirewallRules>
+    </desktop2:Extension>
+  </Extensions>
+
+  <Capabilities>
+    <Capability Name="internetClient" />
+    <Capability Name="privateNetworkClientServer" />
+    <!-- App Win32 de confiança total (obrigatório para injetar mouse/teclado). -->
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

@@ -46,8 +46,13 @@ def main():
     assert 'ditto "$RESOURCES" "$BUNDLE/Contents/Resources/RemoteMouse_RemoteMouse.bundle"' in build
     assert build.count('python3 "$ROOT/macos/scripts/bundle_resources.py"') == 2
     assert '"$RESOURCES/$language_dir.lproj/Localizable.strings"' not in build
+    # The helper binary checks permission before handing off to the shared
+    # server library, which binds before constructing Enigo.
     main_rs = (ROOT / "rust-agent/src/main.rs").read_text()
-    assert main_rs.index("desktop::check_permission_mode()") < main_rs.index("desktop::require_accessibility()") < main_rs.index("TcpListener::bind") < main_rs.index("Enigo::new")
+    server_rs = (ROOT / "rust-agent/src/server.rs").read_text()
+    assert main_rs.index("desktop::check_permission_mode()") < main_rs.index("desktop::require_accessibility()") < main_rs.index("server::run(")
+    assert "TcpListener::bind" not in main_rs and "Enigo::new" not in main_rs
+    assert server_rs.index("TcpListener::bind") < server_rs.index("Enigo::new")
     print(f"OK: {len(expected)} keys × 3 languages, format arguments, localized privacy text, packaging/status-only startup declarations, verbatim endpoint and early check-only guard.")
 
 

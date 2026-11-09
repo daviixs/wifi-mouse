@@ -54,7 +54,8 @@ O APK será criado em `android/app/build/outputs/apk/release/app-release.apk`.
 - `src/stores`: estado global da conexão em Zustand.
 - `src/types`: protocolo versionado compartilhado com o agente.
 - `src/constants`: configuração, paleta, porta e desempenho da fila.
-- `rust-agent`: agente leve para macOS e Windows.
+- `rust-agent`: agente leve para macOS e Windows (biblioteca + binário).
+- `windows`: app nativo Win32 na área de notificação (roda o agente no mesmo processo) e empacotamento MSIX/Store.
 
 ## Gestos e protocolo
 
@@ -93,3 +94,7 @@ npx expo-doctor
 ## Aplicativo macOS (barra de menus)
 
 O shell nativo SwiftUI e os scripts de `.app`/DMG ficam em [`macos/`](macos/README.md). Reutiliza o agente Rust, com iniciar/parar, status real, IPs e orientação de permissões. Requer macOS 13+ para compilar e executar.
+
+## Aplicativo Windows (área de notificação)
+
+App nativo Win32 em Rust, sem webview, em [`windows/`](windows/README.md): iniciar/parar, status, IPs, cópia do endereço, idioma e orientação sobre o Firewall do Windows. Inclui o manifesto e o script MSIX para a Microsoft Store.

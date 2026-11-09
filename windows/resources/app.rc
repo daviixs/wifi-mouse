@@ -1,0 +1,35 @@
+#pragma code_page(65001)
+// No #include <winver.h>: the same file then compiles with rc.exe (MSVC),
+// windres (MinGW) and llvm-rc without SDK headers.
+#define VS_VERSION_INFO 1
+#define VOS_NT_WINDOWS32 0x00040004L
+#define VFT_APP 0x00000001L
+
+// ID 1 is used by the tray icon (LoadImageW(MAKEINTRESOURCE(1))) and Explorer.
+1 ICON "RemoteMouse.ico"
+1 24 "app.manifest"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION 1,0,0,0
+PRODUCTVERSION 1,0,0,0
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "041604B0"
+    BEGIN
+      VALUE "CompanyName", "Remote Mouse"
+      VALUE "FileDescription", "Remote Mouse"
+      VALUE "FileVersion", "1.0.0.0"
+      VALUE "InternalName", "RemoteMouse"
+      VALUE "OriginalFilename", "RemoteMouse.exe"
+      VALUE "ProductName", "Remote Mouse"
+      VALUE "ProductVersion", "1.0.0.0"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x0416, 1200
+  END
+END

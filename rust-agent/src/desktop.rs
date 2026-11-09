@@ -90,14 +90,14 @@ fn accessibility(_prompt: bool) -> bool {
 pub fn permission() {
     emit(
         json!({"event": "permission", "accessibility": accessibility(false),
-                "addresses": crate::lan_ipv4_addresses()}),
+                "addresses": remote_mouse_agent::server::lan_ipv4_addresses()}),
     );
 }
 
-pub fn ready(port: u16, addresses: Vec<Ipv4Addr>, mdns: bool) {
+pub fn ready(port: u16, addresses: Vec<Ipv4Addr>, name: &str, mdns: bool) {
     emit(json!({
         "event": "ready", "port": port, "addresses": addresses,
-        "name": crate::discovery::computer_name(), "mdns": mdns,
+        "name": name, "mdns": mdns,
         "accessibility": accessibility(false)
     }));
 }
@@ -147,13 +147,6 @@ fn read_commands(mut input: impl BufRead, sender: tokio::sync::mpsc::UnboundedSe
         }
     }
     // Dropping sender also requests shutdown on EOF/error.
-}
-
-pub struct ClientStatus;
-impl Drop for ClientStatus {
-    fn drop(&mut self) {
-        emit(json!({"event": "client", "connected": false}));
-    }
 }
 
 #[cfg(test)]
