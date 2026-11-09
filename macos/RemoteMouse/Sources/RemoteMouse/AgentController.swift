@@ -52,7 +52,8 @@ final class AgentController: ObservableObject {
             return L10n.text(clientConnected ? "title.connected" : "title.ready")
         }
     }
-    var address: String? { addresses.first.map { "ws://\($0):\(port)" } }
+    var address: String? { addresses.first.map { Self.copiedAddress(host: $0, port: port) } }
+    nonisolated static func copiedAddress(host: String, port: UInt16) -> String { "\(host):\(port)" }
 
     init(monitorPermission: Bool = true) {
         guard monitorPermission else { return } // deterministic state tests; production always monitors

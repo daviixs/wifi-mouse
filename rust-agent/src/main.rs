@@ -173,6 +173,17 @@ async fn serve_connection(
         _ = shutdown.as_mut() => return Ok(()),
         socket = accept_async_with_config(stream, Some(config)) => socket?,
     };
+    // Additive v1 server greeting. Old clients ignore incoming frames; shortcut
+    // commands remain unchanged and are never remapped by modifier on the agent.
+    socket
+        .send(Message::Text(
+            serde_json::json!({
+                "version": 1, "type": "server.info", "payload": {"os": discovery::os_tag()}
+            })
+            .to_string()
+            .into(),
+        ))
+        .await?;
     desktop::emit(serde_json::json!({"event": "client", "connected": true}));
     let _client_status = desktop::ClientStatus;
     let mut diagnostics = diagnostics::AgentDiagnostics::default();

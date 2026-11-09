@@ -3,6 +3,11 @@ import XCTest
 @testable import RemoteMouse
 
 final class StatusBarTests: XCTestCase {
+    func testCopiedAddressHasPortButNoWebSocketScheme() {
+        XCTAssertEqual(AgentController.copiedAddress(host: "192.168.1.10", port: 8765), "192.168.1.10:8765")
+        XCTAssertEqual(AgentController.copiedAddress(host: "my-mac.local", port: 9000), "my-mac.local:9000")
+    }
+
     func testClickRoutingDoesNotDependOnPermissionOrServerState() {
         XCTAssertEqual(StatusItemRoute.action(for: .leftMouseUp), .panel)
         XCTAssertEqual(StatusItemRoute.action(for: .rightMouseUp), .quitMenu)

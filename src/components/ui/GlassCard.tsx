@@ -1,30 +1,26 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { StyleSheet, View, type StyleProp, type ViewStyle, type ViewProps } from 'react-native';
+import { COLORS, RADIUS, SHADOWS } from '../../theme/tokens';
 
-import { COLORS, GRADIENTS, RADIUS, SHADOWS } from '../../theme/tokens';
+type GlassCardProps = {
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+  radius?: number;
+  onLayout?: ViewProps['onLayout'];
+};
 
-type GlassCardProps = { children: ReactNode; style?: StyleProp<ViewStyle>; radius?: number };
-
-/** Translucent card with a subtle top-to-bottom sheen and a light border. */
-export function GlassCard({ children, style, radius = RADIUS.large }: GlassCardProps) {
+/** One coherent opaque surface: no brighter nested gradient rectangle. */
+export function GlassCard({ children, style, radius = RADIUS.large, onLayout }: GlassCardProps) {
   return (
-    <View style={[styles.shadow, { borderRadius: radius }]}>
-      <LinearGradient
-        colors={GRADIENTS.card}
-        end={{ x: 0.8, y: 1 }}
-        start={{ x: 0.2, y: 0 }}
-        style={[styles.card, { borderRadius: radius }, style]}
-      >
-        {children}
-      </LinearGradient>
+    <View onLayout={onLayout} style={[styles.card, { borderRadius: radius }, style]}>
+      {children}
     </View>
   );
 }
-
 const styles = StyleSheet.create({
-  shadow: { ...SHADOWS.card },
   card: {
+    ...SHADOWS.card,
+    backgroundColor: COLORS.surface,
     borderColor: COLORS.border,
     borderWidth: 1,
     overflow: 'hidden',

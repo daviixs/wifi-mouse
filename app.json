@@ -3,7 +3,7 @@
     "name": "Remote Mouse",
     "slug": "wifi-mouse",
     "description": "Use o celular como touchpad para computadores na mesma rede Wi-Fi.",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "wifimouse",
@@ -31,7 +31,9 @@
         "android.permission.INTERNET",
         "android.permission.ACCESS_WIFI_STATE",
         "android.permission.CHANGE_WIFI_MULTICAST_STATE"
-      ]
+      ],
+      "versionCode": 20261108,
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "output": "static",

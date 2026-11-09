@@ -20,7 +20,7 @@ export type ShortcutGroup = { title: string; options: ShortcutOption[] };
 
 export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
-    title: 'WINDOWS / LINUX',
+    title: 'WINDOWS',
     options: [
       {
         id: 'alt-tab',
@@ -80,6 +80,37 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     ],
   },
 ];
+
+/** Destination OS, never the phone OS. Unknown hosts need an explicit choice. */
+export function shortcutGroupsForHost(os: string): ShortcutGroup[] {
+  const common = SHORTCUT_GROUPS.filter((group) => group.title === 'GERAL');
+  if (os === 'macos')
+    return [...SHORTCUT_GROUPS.filter((group) => group.title === 'MAC'), ...common];
+  if (os === 'windows')
+    return [...SHORTCUT_GROUPS.filter((group) => group.title === 'WINDOWS'), ...common];
+  if (os === 'linux')
+    return [
+      {
+        title: 'LINUX',
+        options: SHORTCUT_GROUPS[0].options.filter((option) => option.id !== 'win-d'),
+      },
+      ...common,
+    ];
+  return common;
+}
+
+/** Optional additive server greeting; invalid/unrelated frames never choose a platform. */
+export function parseServerPlatform(data: unknown): 'macos' | 'windows' | 'linux' | null {
+  if (typeof data !== 'string' || data.length > 1024) return null;
+  try {
+    const info = JSON.parse(data);
+    if (info?.version !== 1 || info?.type !== 'server.info') return null;
+    const os = info?.payload?.os;
+    return os === 'macos' || os === 'windows' || os === 'linux' ? os : null;
+  } catch {
+    return null;
+  }
+}
 
 export function isValidShortcut(modifiers: readonly string[], key: string): boolean {
   if (modifiers.length > MAX_SHORTCUT_MODIFIERS) return false;

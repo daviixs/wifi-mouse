@@ -8,6 +8,9 @@ import {
 } from '../../../scripts/transpile-test-modules.mjs';
 
 const outputRoot = transpileTestModules([
+  'src/services/websocket/serverUrl.ts',
+  'src/services/keyboard/shortcuts.ts',
+  'src/types/protocol.ts',
   'src/constants/config.ts',
   'src/services/websocket/WebSocketClient.ts',
   'src/services/websocket/connectionAttempt.ts',
