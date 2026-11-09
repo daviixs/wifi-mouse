@@ -27,6 +27,15 @@ def main():
         info = plistlib.load(file)
     assert set(info["CFBundleLocalizations"]) == set(LANGUAGES)
     assert info["CFBundleDevelopmentRegion"] == "en"
+    # Structural regression guard only, not an AppKit runtime test.
+    entry = (SOURCE / "RemoteMouseApp.swift").read_text()
+    assert not re.search(r"\b(?:Settings|WindowGroup)\s*\{", entry), "Status-only startup must not register a window scene"
+    assert ": App {" not in entry and "NSApplicationDelegateAdaptor" not in entry
+    assert "RemoteMouseApplication.shared" in entry and "withExtendedLifetime(delegate)" in entry
+    assert info["LSUIElement"] is True
+    assert info["NSPrincipalClass"] == "RemoteMouseApplication"
+    assert "@objc(RemoteMouseApplication)" in entry and "override func restoreWindow" in entry
+    assert "completionHandler(nil, nil)" in entry
     manifest = (ROOT / "macos/RemoteMouse/Package.swift").read_text()
     assert 'defaultLocalization: "en"' in manifest and '.process("Resources")' in manifest
     build = (ROOT / "macos/scripts/build-app.sh").read_text()
@@ -35,7 +44,7 @@ def main():
     assert '"$RESOURCES/$language_dir.lproj/Localizable.strings"' not in build
     main_rs = (ROOT / "rust-agent/src/main.rs").read_text()
     assert main_rs.index("desktop::check_permission_mode()") < main_rs.index("desktop::require_accessibility()") < main_rs.index("TcpListener::bind") < main_rs.index("Enigo::new")
-    print(f"OK: {len(expected)} keys × 3 languages, format arguments, localized privacy text, packaging declarations and early check-only guard.")
+    print(f"OK: {len(expected)} keys × 3 languages, format arguments, localized privacy text, packaging/status-only startup declarations and early check-only guard.")
 
 
 if __name__ == "__main__":

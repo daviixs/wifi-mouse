@@ -301,6 +301,23 @@ macos/scripts/test.sh && macos/scripts/build-app.sh arm64
 
 A saída `DMG gerado .../tmp.../result.dmg` nos testes é simulada; não confirma que exista um DMG final novo. Continue o teste do bundle instalado descrito acima. Nenhum rebuild de DMG é necessário para verificar aviso opaco, permissão e clique direito.
 
+### Janela vazia “Remote Mouse Settings” (correção de inicialização)
+
+A versão anterior deixou `Settings { EmptyView() }` como única cena SwiftUI depois de mover o painel para NSStatusItem. Isso **registra uma janela Settings real com conteúdo vazio**; `LSUIElement` oculta o Dock, não impede janelas. Não era necessário manter uma cena placeholder. O gatilho exato que a abriu naquele launch (ativação/restauração/reopen) não foi reproduzido aqui, mas o produtor da janela vazia está no código.
+
+A inicialização agora é AppKit pura: `RemoteMouseApplication.shared`, política `.accessory`, delegate mantido vivo e `run()`. SwiftUI continua somente no NSHostingController do popover. Não existe cena Settings/WindowGroup. O delegate recusa criação untitled e fallback de reopen; o funil público `NSApplication.restoreWindow` reconhece/restaura **nenhuma janela**, completando com nil para não deixar a restauração pendente. `NSPrincipalClass` usa o nome Objective-C explícito da nossa NSApplication. Não se enumeram/fecham janelas, não se apaga estado salvo e não há defaults globais ou APIs privadas. Esquerdo/painel e direito/Sair continuam iguais.
+
+Patch incremental `remote-mouse-macos-startup-fix.patch`, após a correção de paths já aplicada. Não precisa comparar hashes locais: `git am` aplica pelo conteúdo e pode gerar outro hash de commit no seu checkout.
+
+```bash
+git am ~/Downloads/remote-mouse-macos-startup-fix.patch
+macos/scripts/test.sh && macos/scripts/build-app.sh arm64
+```
+
+Antes de substituir o app, guarde o JSON de **Copy permission diagnostics** já solicitado na instalação que apresenta o bloqueio. Esta entrega não modifica gate, probe, prompt, política TCC ou Rust; o bloqueio continua aguardando esse dado. Rebuild ad-hoc muda identidade da assinatura e pode exigir autorizar a instalação nova; não use isso como conclusão da causa anterior. Encerre a cópia antiga com Sair, preserve-a pelo Finder e instale/abra o bundle inteiro novo em `/Applications` pelo Finder. Verifique launch, fechar/abrir app novamente e reopen enquanto já roda: só ícone, nenhuma janela Settings/cinza; esquerdo abre painel, direito oferece Sair nos três idiomas e encerra apenas seus filhos. Não gere DMG para esse teste.
+
+Disponível nesta box: testes portáveis/resources e parser de gramática Swift, **não** compilação Swift/AppKit nem execução macOS. Os novos testes XCTest exercitam callbacks de startup/reopen e conclusão nil de restauração; a execução deles e a inspeção visual dependem do Mac.
+
 ## Como enviar os commits ao GitHub
 
 `git am` **já cria um commit para cada patch**; não há necessidade de `git add .` nem de recommitar os mesmos arquivos como outra pessoa. A branch deste checkout é `feat/macos-menubar`; o remote existente `origin` aponta para `https://github.com/daviixs/wifi-mouse.git`. Não foi alterado nem houve push/fetch nesta entrega. No seu checkout confira, antes de enviar:

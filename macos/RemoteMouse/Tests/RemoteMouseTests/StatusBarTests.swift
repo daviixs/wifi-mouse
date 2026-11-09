@@ -23,6 +23,31 @@ final class StatusBarTests: XCTestCase {
     }
 
     @MainActor
+    func testStartupAndReopenDoNotRequestStandaloneWindows() {
+        let model = AgentController(monitorPermission: false)
+        let delegate = AppDelegate(model: model)
+        let application = NSApplication.shared
+        XCTAssertFalse(delegate.applicationShouldOpenUntitledFile(application))
+        XCTAssertFalse(delegate.applicationOpenUntitledFile(application))
+        XCTAssertFalse(delegate.applicationShouldHandleReopen(application, hasVisibleWindows: false))
+        XCTAssertFalse(delegate.applicationShouldHandleReopen(application, hasVisibleWindows: true))
+        XCTAssertFalse(delegate.applicationShouldTerminateAfterLastWindowClosed(application))
+        XCTAssertTrue(model.permissionBlocked) // startup policy does not grant permission
+    }
+
+    @MainActor
+    func testOldWindowRestorationCompletesWithoutCreatingAWindow() {
+        var completions = 0
+        let handled = RemoteMouseApplication.skipWindowRestoration { window, error in
+            completions += 1
+            XCTAssertNil(window)
+            XCTAssertNil(error)
+        }
+        XCTAssertTrue(handled)
+        XCTAssertEqual(completions, 1)
+    }
+
+    @MainActor
     func testQuitCompletesWithoutAnAgentAndStartCannotBypassUnknownPermission() {
         let model = AgentController(monitorPermission: false)
         XCTAssertTrue(model.permissionBlocked)

@@ -1,5 +1,19 @@
 # Estado da validação desta entrega
 
+## Inicialização apenas na barra, sem Settings vazio (base 2e64611)
+
+**Causa no código:** o fallback `Settings { EmptyView() }` do SwiftUI App ainda registrava uma cena/janela Settings, embora NSStatusItem/NSPopover já fossem responsáveis por toda a interface. LSUIElement=true não proíbe janelas. O título e conteúdo vazio relatados são compatíveis diretamente com essa cena; o mecanismo exato que a abriu no launch não foi reproduzido no Linux.
+
+**Correção delimitada:** entry point AppKit com NSApplication própria, nome Objective-C/NSPrincipalClass consistente, `.accessory`, delegate fortemente mantido durante run(). Sem App/Scene/Settings/WindowGroup SwiftUI na inicialização; SwiftUI permanece somente hospedado no popover. Delegate recusa untitled e fallback de reopen. Override do funil público restoreWindow completa cada solicitação com (nil,nil) e retorna true, inclusive para arquivos de estado da cena antiga. Não enumera nem fecha janelas, não apaga caches/arquivos salvos ou muda preferências. Modelo, clique esquerdo, menu direito e shutdown dos próprios filhos são preservados.
+
+**Permissão:** revisão confirmou que o gate exige helper=true numa consulta válida/exit 0, prompts vêm do helper correto, polling é independente de iniciar servidor e erro/false não são convertidos em grant. Nenhum novo defeito de política foi demonstrado sem o JSON solicitado. AgentController, AccessibilityState, Rust e prompts **não alterados**. A investigação TCC aguarda app_ax_observed/helper_ax, caminhos/assinaturas e last_probe do diagnóstico já pedido. Recolher preferencialmente antes de outro rebuild ad-hoc alterar a identidade.
+
+**Testes:** checker 48×3 agora inclui guard estrutural de entry point sem cena, LSUIElement e NSPrincipalClass; suites Python portáveis/resources/DMG e sintaxe; parser apenas de gramática dos 11 arquivos Swift. Adicionados XCTest de recusa de untitled/reopen com/sem janela visível e conclusão da restauração uma única vez sem NSWindow; não executados nesta box sem Swift/SDK/AppKit. Nada aqui certifica runtime, restauração real ou compilação Swift nativa. Cargo/mobile não repetidos porque nenhum código Rust/mobile mudou.
+
+**Retomar Mac:** aplicar patch por conteúdo (hash no checkout do usuário pode diferir), `macos/scripts/test.sh && macos/scripts/build-app.sh arm64`; sair da instância antiga antes de instalar o bundle novo em /Applications via Finder. Conferir launch/relaunch/reopen sem janela Settings, painel somente no esquerdo, direito Sair/Quit/Salir e encerramento. Nenhum DMG necessário. Não houve comandos no Mac, clone/CloudAgent/push/PR. Bloqueio de permissão e último DMG não são declarados resolvidos por esta entrega.
+
+As seções abaixo são histórico.
+
 ## Caminhos equivalentes em fixtures/macOS (base e5aff0f)
 
 **Causa demonstrada pelos três erros:** macOS resolve `/tmp` e `/var` por symlinks para caminhos `/private/...`; testes misturavam retorno canônico com expectativa/mock sem normalização. `image_mounts` real já devolvia resolve(), mas mocks de `attached_paths` devolviam Path cru. Por isso attach comparava listas com grafias diferentes, detach não reconhecia a lista mockada e a expectativa literal `/tmp` falhava. Isso não demonstra falha de uma montagem DMG real nem regressão específica do Python 3.14.
