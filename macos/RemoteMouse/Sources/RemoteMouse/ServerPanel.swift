@@ -135,7 +135,7 @@ struct ServerPanel: View {
                     .font(.system(size: 12)).foregroundStyle(Theme.muted)
             } else {
                 ForEach(model.addresses, id: \.self) { ip in
-                    Text("\(ip):\(model.port)").font(.system(size: 15, weight: .medium, design: .monospaced))
+                    Text(verbatim: AgentController.copiedAddress(host: ip, port: model.port)).font(.system(size: 15, weight: .medium, design: .monospaced))
                         .textSelection(.enabled)
                 }
             }

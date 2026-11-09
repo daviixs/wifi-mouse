@@ -97,7 +97,11 @@ export default function TouchpadScreen() {
           )}
 
           <View style={styles.touchArea}>
-            <Touchpad onCommand={sendCommand} sensitivity={sensitivity} />
+            <Touchpad
+              enabled={status === 'connected'}
+              onCommand={sendCommand}
+              sensitivity={sensitivity}
+            />
             <SensitivityControl sensitivity={sensitivity} onChange={setSensitivity} />
             <KeyboardModeControl initialOpen={teclado === '1'} onCommand={sendCommand} />
             <ShortcutsControl onCommand={sendCommand} />

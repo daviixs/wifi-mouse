@@ -6,6 +6,7 @@ export const COLORS = {
   surface: '#111A4A',
   surfaceGlass: '#111A4A',
   surfaceSubtle: '#0C1438',
+  surfaceActive: '#1D2B66',
   border: 'rgba(130, 155, 255, 0.28)',
   text: '#F4F7FF',
   muted: '#A9B6E6',

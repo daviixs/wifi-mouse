@@ -49,9 +49,9 @@ Remote Mouse.app gerado pelo build em /Applications. Abra a cópia de
 prefixo quanto o greeting do helper; atualizar só o APK mantém fallback mDNS ou
 seleção manual com agentes antigos. Não é necessário gerar DMG nesta etapa.
 
-**Acessibilidade continua pendente do JSON de diagnóstico solicitado.** Esta
-entrega não modifica o gate, não finge autorização e não garante injeção de
-teclas enquanto a permissão real do processo responsável não estiver válida.
+Na entrega original a Acessibilidade aguardava diagnóstico. Posteriormente o
+usuário confirmou helper autorizado e servidor online. A política de autorização
+não foi alterada; nenhuma entrega finge grant ou contorna a permissão real.
 
 ## Validação
 

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -16,21 +16,29 @@ import {
   createMotionCommand,
   type MotionKind,
 } from '../services/mouse/motion';
+import { useInteractionLifetime } from '../hooks/useInteractionLifetime';
+import { TOUCH_FEEDBACK, updateTouchFeedback } from '../services/mouse/touchFeedback';
 import type { MouseCommand } from '../types/protocol';
 
-type TouchpadProps = { onCommand: (command: MouseCommand) => void; sensitivity: number };
+type TouchpadProps = {
+  onCommand: (command: MouseCommand) => void;
+  sensitivity: number;
+  enabled: boolean;
+};
 
-export function Touchpad({ onCommand, sensitivity }: TouchpadProps) {
-  const pressed = useSharedValue(0);
+export function Touchpad({ onCommand, sensitivity, enabled }: TouchpadProps) {
+  const activeGestures = useSharedValue(0);
+  const isLive = useInteractionLifetime(enabled);
   const pendingKind = useSharedValue<MotionKind | null>(null);
   const pendingDx = useSharedValue(0);
   const pendingDy = useSharedValue(0);
   const dispatchMotion = useCallback(
     (kind: MotionKind, dx: number, dy: number) => {
+      if (!isLive()) return;
       const scaled = applyMotionSensitivity(kind, dx, dy, sensitivity);
       if (scaled.dx || scaled.dy) onCommand(createMotionCommand(kind, scaled.dx, scaled.dy));
     },
-    [onCommand, sensitivity],
+    [onCommand, sensitivity, isLive],
   );
   const frameCallback = useFrameCallback(() => {
     const kind = pendingKind.get();
@@ -49,16 +57,31 @@ export function Touchpad({ onCommand, sensitivity }: TouchpadProps) {
     },
     [dispatchMotion, frameCallback],
   );
-  const activateFrameCallback = useCallback(() => frameCallback.setActive(true), [frameCallback]);
+  const activateFrameCallback = useCallback(() => {
+    if (isLive()) frameCallback.setActive(true);
+  }, [frameCallback, isLive]);
+  useEffect(() => {
+    const reset = () => {
+      frameCallback.setActive(false);
+      activeGestures.set(updateTouchFeedback(activeGestures.get(), 0, 'reset'));
+      pendingKind.set(null);
+      pendingDx.set(0);
+      pendingDy.set(0);
+    };
+    if (!enabled) reset();
+    return () => {
+      reset(); // disconnect/disable and unmount discard unsent motion; never flush offline
+    };
+  }, [activeGestures, enabled, frameCallback, pendingDx, pendingDy, pendingKind]);
   const animatedSurface = useAnimatedStyle(() => ({
-    borderColor: pressed.get() ? COLORS.primary : COLORS.border,
-    backgroundColor: pressed.get() ? COLORS.surfaceSubtle : COLORS.surface,
-    transform: [{ scale: withTiming(pressed.get() ? 0.997 : 1, { duration: 140 }) }],
+    borderColor: activeGestures.get() ? COLORS.primary : COLORS.border,
+    backgroundColor: activeGestures.get() ? COLORS.surfaceActive : COLORS.surface,
+    transform: [{ scale: withTiming(activeGestures.get() ? 0.997 : 1, { duration: 140 }) }],
   }));
 
   const gestures = useMemo(() => {
     const dispatchClick = (button: 'left' | 'right') => {
-      onCommand({ version: 1, type: 'mouse.click', payload: { button } });
+      if (isLive()) onCommand({ version: 1, type: 'mouse.click', payload: { button } });
     };
     const flushPendingMotion = () => {
       'worklet';
@@ -72,8 +95,17 @@ export function Touchpad({ onCommand, sensitivity }: TouchpadProps) {
       scheduleOnRN(finishMotion, kind, dx, dy);
     };
     const tap = Gesture.Tap()
+      .enabled(enabled)
       .maxDuration(240)
       .maxDistance(12)
+      .onBegin(() => {
+        activeGestures.set(updateTouchFeedback(activeGestures.get(), TOUCH_FEEDBACK.tap, 'begin'));
+      })
+      .onFinalize(() => {
+        activeGestures.set(
+          updateTouchFeedback(activeGestures.get(), TOUCH_FEEDBACK.tap, 'finalize'),
+        );
+      })
       .onEnd((_event, success) => {
         if (success) {
           flushPendingMotion();
@@ -81,26 +113,31 @@ export function Touchpad({ onCommand, sensitivity }: TouchpadProps) {
         }
       });
     const longPress = Gesture.LongPress()
+      .enabled(enabled)
       .minDuration(520)
       .maxDistance(14)
       .onBegin(() => {
-        pressed.set(1);
+        activeGestures.set(
+          updateTouchFeedback(activeGestures.get(), TOUCH_FEEDBACK.longPress, 'begin'),
+        );
       })
       .onEnd((_event, success) => {
-        pressed.set(0);
         if (success) {
           flushPendingMotion();
           scheduleOnRN(dispatchClick, 'right');
         }
       })
       .onFinalize(() => {
-        pressed.set(0);
+        activeGestures.set(
+          updateTouchFeedback(activeGestures.get(), TOUCH_FEEDBACK.longPress, 'finalize'),
+        );
       });
     const move = Gesture.Pan()
+      .enabled(enabled)
       .minPointers(1)
       .maxPointers(1)
       .onBegin(() => {
-        pressed.set(1);
+        activeGestures.set(updateTouchFeedback(activeGestures.get(), TOUCH_FEEDBACK.move, 'begin'));
       })
       .onStart(() => {
         const previousKind = pendingKind.get();
@@ -119,7 +156,9 @@ export function Touchpad({ onCommand, sensitivity }: TouchpadProps) {
         }
       })
       .onFinalize(() => {
-        pressed.set(0);
+        activeGestures.set(
+          updateTouchFeedback(activeGestures.get(), TOUCH_FEEDBACK.move, 'finalize'),
+        );
         if (pendingKind.get() === 'mouse.move') {
           const dx = pendingDx.get();
           const dy = pendingDy.get();
@@ -130,10 +169,13 @@ export function Touchpad({ onCommand, sensitivity }: TouchpadProps) {
         }
       });
     const scroll = Gesture.Pan()
+      .enabled(enabled)
       .minPointers(2)
       .maxPointers(2)
       .onBegin(() => {
-        pressed.set(1);
+        activeGestures.set(
+          updateTouchFeedback(activeGestures.get(), TOUCH_FEEDBACK.scroll, 'begin'),
+        );
       })
       .onStart(() => {
         const previousKind = pendingKind.get();
@@ -152,7 +194,9 @@ export function Touchpad({ onCommand, sensitivity }: TouchpadProps) {
         }
       })
       .onFinalize(() => {
-        pressed.set(0);
+        activeGestures.set(
+          updateTouchFeedback(activeGestures.get(), TOUCH_FEEDBACK.scroll, 'finalize'),
+        );
         if (pendingKind.get() === 'mouse.scroll') {
           const dx = pendingDx.get();
           const dy = pendingDy.get();
@@ -164,7 +208,17 @@ export function Touchpad({ onCommand, sensitivity }: TouchpadProps) {
       });
 
     return Gesture.Race(longPress, tap, scroll, move);
-  }, [activateFrameCallback, finishMotion, onCommand, pendingDx, pendingDy, pendingKind, pressed]);
+  }, [
+    activateFrameCallback,
+    finishMotion,
+    onCommand,
+    pendingDx,
+    pendingDy,
+    pendingKind,
+    activeGestures,
+    enabled,
+    isLive,
+  ]);
 
   return (
     <GestureDetector gesture={gestures}>

@@ -8,6 +8,16 @@ final class StatusBarTests: XCTestCase {
         XCTAssertEqual(AgentController.copiedAddress(host: "my-mac.local", port: 9000), "my-mac.local:9000")
     }
 
+    func testEndpointRemainsRawWhenUsedByLocalizedPresentation() {
+        for language in ["en_US", "pt_BR", "es_ES"] {
+            let address = AgentController.copiedAddress(host: "192.168.24.45", port: 8765)
+            // String fields remain identifiers even in a localized surrounding message.
+            XCTAssertEqual(String(format: "%@", locale: Locale(identifier: language), address),
+                           "192.168.24.45:8765")
+        }
+        XCTAssertEqual(AgentController.copiedAddress(host: "my-mac.local", port: 65535), "my-mac.local:65535")
+    }
+
     func testClickRoutingDoesNotDependOnPermissionOrServerState() {
         XCTAssertEqual(StatusItemRoute.action(for: .leftMouseUp), .panel)
         XCTAssertEqual(StatusItemRoute.action(for: .rightMouseUp), .quitMenu)

@@ -10,7 +10,9 @@ export type SensitivityStorage = {
 export async function loadSensitivity(storage: SensitivityStorage): Promise<number> {
   try {
     const storedValue = await storage.getItem(SENSITIVITY_STORAGE_KEY);
-    return storedValue === null ? DEFAULT_SENSITIVITY : normalizeSensitivity(Number(storedValue));
+    return storedValue === null || storedValue.trim() === ''
+      ? DEFAULT_SENSITIVITY
+      : normalizeSensitivity(Number(storedValue));
   } catch {
     return DEFAULT_SENSITIVITY;
   }
