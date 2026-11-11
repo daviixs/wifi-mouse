@@ -1,5 +1,49 @@
 # Estado da validação desta entrega
 
+## Inicialização apenas na barra, sem Settings vazio (base 2e64611)
+
+**Causa no código:** o fallback `Settings { EmptyView() }` do SwiftUI App ainda registrava uma cena/janela Settings, embora NSStatusItem/NSPopover já fossem responsáveis por toda a interface. LSUIElement=true não proíbe janelas. O título e conteúdo vazio relatados são compatíveis diretamente com essa cena; o mecanismo exato que a abriu no launch não foi reproduzido no Linux.
+
+**Correção delimitada:** entry point AppKit com NSApplication própria, nome Objective-C/NSPrincipalClass consistente, `.accessory`, delegate fortemente mantido durante run(). Sem App/Scene/Settings/WindowGroup SwiftUI na inicialização; SwiftUI permanece somente hospedado no popover. Delegate recusa untitled e fallback de reopen. Override do funil público restoreWindow completa cada solicitação com (nil,nil) e retorna true, inclusive para arquivos de estado da cena antiga. Não enumera nem fecha janelas, não apaga caches/arquivos salvos ou muda preferências. Modelo, clique esquerdo, menu direito e shutdown dos próprios filhos são preservados.
+
+**Permissão:** revisão confirmou que o gate exige helper=true numa consulta válida/exit 0, prompts vêm do helper correto, polling é independente de iniciar servidor e erro/false não são convertidos em grant. Nenhum novo defeito de política foi demonstrado sem o JSON solicitado. AgentController, AccessibilityState, Rust e prompts **não alterados**. A investigação TCC aguarda app_ax_observed/helper_ax, caminhos/assinaturas e last_probe do diagnóstico já pedido. Recolher preferencialmente antes de outro rebuild ad-hoc alterar a identidade.
+
+**Testes:** checker 48×3 agora inclui guard estrutural de entry point sem cena, LSUIElement e NSPrincipalClass; suites Python portáveis/resources/DMG e sintaxe; parser apenas de gramática dos 11 arquivos Swift. Adicionados XCTest de recusa de untitled/reopen com/sem janela visível e conclusão da restauração uma única vez sem NSWindow; não executados nesta box sem Swift/SDK/AppKit. Nada aqui certifica runtime, restauração real ou compilação Swift nativa. Cargo/mobile não repetidos porque nenhum código Rust/mobile mudou.
+
+**Retomar Mac:** aplicar patch por conteúdo (hash no checkout do usuário pode diferir), `macos/scripts/test.sh && macos/scripts/build-app.sh arm64`; sair da instância antiga antes de instalar o bundle novo em /Applications via Finder. Conferir launch/relaunch/reopen sem janela Settings, painel somente no esquerdo, direito Sair/Quit/Salir e encerramento. Nenhum DMG necessário. Não houve comandos no Mac, clone/CloudAgent/push/PR. Bloqueio de permissão e último DMG não são declarados resolvidos por esta entrega.
+
+As seções abaixo são histórico.
+
+## Caminhos equivalentes em fixtures/macOS (base e5aff0f)
+
+**Causa demonstrada pelos três erros:** macOS resolve `/tmp` e `/var` por symlinks para caminhos `/private/...`; testes misturavam retorno canônico com expectativa/mock sem normalização. `image_mounts` real já devolvia resolve(), mas mocks de `attached_paths` devolviam Path cru. Por isso attach comparava listas com grafias diferentes, detach não reconhecia a lista mockada e a expectativa literal `/tmp` falhava. Isso não demonstra falha de uma montagem DMG real nem regressão específica do Python 3.14.
+
+**Patch:** helper único `same_filesystem_path` para fonte da imagem e pontos de montagem: samefile (device/inode) para objetos vivos; apenas ENOENT usa igualdade de resolve() para caminho já desmontado/fixture sem arquivo. PermissionError/loops/I/O não são silenciados. attach ainda exige exatamente um mount no retorno e na imagem própria; detach só age após reconhecer o caminho entre montagens dessa imagem e usa alvo canônico. Pós-detach e diagnósticos usam a mesma regra. Não se remove prefixo `/private`, compara volume-name, aproxima dev-entry ou confunde arquivos de conteúdo igual.
+
+**Fixtures:** diretórios/arquivos reais sob TemporaryDirectory, sem expectativas literais de `/tmp`. Symlink real entre duas grafias prova aceitação do mesmo objeto em attach/detach/filtro de imagem; outro diretório/imagem com bytes iguais é recusado. Testa recusa de desmontar outro mount, imagem alheia ausente do diagnóstico, pós-detach ainda montado por symlink, cardinalidade e erro de stat conservador. hdiutil continua mockado: a linha `DMG gerado: .../result.dmg` é somente saída do teste de orquestração, não imagem real publicada.
+
+**Validação Linux:** 19 testes de orquestração, 17 metadata, 4 CoreFoundation com stubs, 12 resources, checker 48×3 e sintaxe Python/shell/diff. Não foi executado Python/macOS 3.14, Finder, hdiutil ou assinatura nativos. Nenhuma alteração de Rust, UI, app, assinatura ou layout. Retomar no Mac `macos/scripts/test.sh && macos/scripts/build-app.sh arm64`; não é necessário gerar DMG para testar opacidade, Acessibilidade e menu direito da entrega anterior.
+
+As seções abaixo são histórico das entregas anteriores.
+
+## Painel opaco, permissão verificável e menu direito (base e059be5)
+
+**Defeito visual provado no código:** dashboard permanecia atrás de dimmer 0,65 e card translúcido; por isso texto vazava. Agora só uma árvore existe por vez: permissão ou dashboard. Tela/card de permissão usam RGB opaco, texto de altura livre, CTAs separados, ScrollView com indicador e Sair fora da rolagem. Nenhuma mudança de arte/DMG/mobile.
+
+**Fluxo AX:** removido prompt duplo do app e helper. O CTA chama o helper correto na mesma cadeia Process/diretório do servidor; macOS pode atribuir a solicitação ao contêiner responsável. AX do app é apenas diagnóstico, jamais OR para liberar. Mismatch app=true/helper=false tem mensagem traduzida; desconhecido/erro continuam bloqueantes. Poll silencioso single-flight a cada 2s, ao abrir/reativar; timeout 5s + encerramento forçado apenas do probe próprio após 2s evita slot preso em SIGTERM. A própria inicialização Rust agora rejeita AX negado antes do bind/Enigo. Mudança mínima de guard, sem alterar protocolo/injeção.
+
+**Causa TCC ainda não demonstrada no Mac:** não há resultado AX/cdhash/path real da falha recebida. Ad-hoc default do build e múltiplas instalações podem explicar entradas antigas, mas não são conclusões. Botão de diagnóstico copia só dados do app/helper: paths/PIDs, app AX observado, helper AX, última saída/exit/modo e assinatura estática (validade, flags, identificador, team/cdhash). Não lê/reset TCC nem injeta input. Se persistir após instalar/autorizar o bundle atual, esse JSON é o diagnóstico mínimo, não uma nova rodada de suposições.
+
+**Menu direito:** NSStatusItem/NSPopover/NSMenu públicos substituem MenuBarExtra para distinguir leftMouseUp (painel) e rightMouseUp (Sair/Quit/Salir). Menu funciona independente da permissão ou servidor. Todos os caminhos de Sair passam pelo delegate e aguardam servidor e probe próprios; stop/EOF, SIGINT 3s, SIGTERM 6s e último recurso SIGKILL 8s no servidor, sem killall/processos alheios.
+
+**Executado Linux:** npm lint/typecheck e 39 testes motion/services; 12 testes reais de recursos; checker 48 chaves×3 idiomas; testes DMG portáveis preservados; cargo check --locked --target aarch64-apple-darwin e --tests aprovados. Rust testes foram typechecked, não executados nativamente. Tentativa cargo test --no-run desse target falhou no link por ausência de SDK/linker Apple (xcrun/frameworks), não por erro de Rust. Swift/Xcode não estão instalados nesta box; parser portátil tree-sitter conferiu gramática dos 11 arquivos Swift (ferramenta externa ao repo, sem dependência de runtime), não compilação/typecheck. Contraste calculado dos RGB opacos e stops dos CTAs ≥4,5:1; não é screenshot renderizada. Novos testes Swift cobrem mismatch/deny/grant/revoke/relaunch de estado, roteamento dos cliques, gate de espera por ambos os filhos e Sair sem helper; execução depende do Mac.
+
+**Validação Mac obrigatória:** executar macos/scripts/test.sh e build-app.sh arm64, encerrar antiga, preservar cópia anterior e instalar bundle inteiro em /Applications via Finder. Abrir esse bundle; testar negar, solicitar/grant sem listener (painel libera sozinho), iniciar, revogar (para servidor), conceder (não autoinicia), relançar e atualizar ad-hoc. Conferir três idiomas, aviso opaco e rolável, menu direito em todos os estados e Sair sem helper/porta órfãos. Smoke em Terminal tem outra cadeia TCC: não usar sua permissão como prova do app nem conceder acesso amplo ao Terminal. Não houve comandos em Mac, CloudAgent/clone/push/PR. Último DMG continua sem aprovação visual confirmada.
+
+**Git:** entrega local como Remote Mouse Bot; git am já cria commits. Só o usuário decide executar push da branch existente após conferir status/log/remote. Planos locais/builds/segredos ignorados; nada privado varrido e nada já rastreado removido.
+
+As seções abaixo são histórico das entregas de DMG.
+
 ## Resolução canônica e identidade observável (base 460dc17)
 
 **Evidência recebida:** após converter/remontar, CoreFoundation retornou `/Volumes/Remote Mouse/.background/background.png`, não o fundo de `mount-ro`; `stale=true`. O guard já comparava com `samefile`, portanto não era só divergência textual: a mensagem específica mostra que retornou identidade divergente naquele instante, não um erro stat de arquivo ausente. O log não registrava os números de device/inode nem os caminhos canônicos. Não demonstra cache, outra imagem montada, nem o motivo do fallback. Não há fundamento para culpar uma montagem deixada pelo usuário.

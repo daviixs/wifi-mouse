@@ -47,12 +47,25 @@ class OwnedMount:
     path: Path
 
 
+def same_filesystem_path(left, right):
+    """Compare filesystem objects, never volume labels or '/private' prefixes.
+
+    Missing paths (e.g. a detached mount) still have canonical spelling; only
+    ENOENT falls back to resolve(). Permission/loop/I/O errors remain failures.
+    """
+    left, right = Path(left), Path(right)
+    try:
+        return left.samefile(right)  # follows symlinks; exact device/inode
+    except FileNotFoundError:
+        return left.resolve() == right.resolve()
+
+
 def image_mounts(info, image):
     """Only entries for this exact image; never match by volume name/device prefix."""
     mounts = []
     for entry in info.get("images", []):
         candidate = entry.get("image-path")
-        if not candidate or Path(candidate).resolve() != image.resolve():
+        if not candidate or not same_filesystem_path(candidate, image):
             continue
         mounts.extend(Path(entity["mount-point"]).resolve()
                       for entity in entry.get("system-entities", []) if "mount-point" in entity)
@@ -65,11 +78,11 @@ def attached_paths(image):
 
 def detach(mount):
     paths = attached_paths(mount.image)
-    if mount.path.resolve() not in paths:
+    if not any(same_filesystem_path(path, mount.path) for path in paths):
         return
     # This path was created by this build and confirmed to belong to its exact image.
-    run(["/usr/bin/hdiutil", "detach", mount.path], timeout=90)
-    if mount.path.resolve() in attached_paths(mount.image):
+    run(["/usr/bin/hdiutil", "detach", mount.path.resolve()], timeout=90)
+    if any(same_filesystem_path(path, mount.path) for path in attached_paths(mount.image)):
         raise BuildError(f"Volume continua montado: {mount.path}")
 
 
@@ -89,7 +102,7 @@ def mount_report(mount):
         entities = []
         for image in info.get("images", []):
             candidate = image.get("image-path")
-            if candidate and Path(candidate).resolve() == mount.image.resolve():
+            if candidate and same_filesystem_path(candidate, mount.image):
                 entities.extend({key: entry[key] for key in ("dev-entry", "mount-point", "content-hint") if key in entry}
                                 for entry in image.get("system-entities", []))
         return {"image": str(mount.image), "expected_mount": str(mount.path), "entities": entities}
@@ -108,7 +121,9 @@ def attach(mount, readonly):
     info = plistlib.loads(output)
     actual = [Path(entry["mount-point"]).resolve() for entry in info.get("system-entities", []) if "mount-point" in entry]
     owned = attached_paths(mount.image)
-    if actual != [mount.path.resolve()] or owned != [mount.path.resolve()]:
+    if (len(actual) != 1 or len(owned) != 1
+            or not same_filesystem_path(actual[0], mount.path)
+            or not same_filesystem_path(owned[0], mount.path)):
         raise BuildError(f"hdiutil não confirmou o mount canônico único; retorno={actual}, "
                          f"imagem própria={owned}, esperado={mount.path}. Não se aceita sufixo/caminho alternativo.")
 

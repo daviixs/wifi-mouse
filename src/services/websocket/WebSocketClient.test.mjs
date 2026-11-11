@@ -8,6 +8,9 @@ import {
 } from '../../../scripts/transpile-test-modules.mjs';
 
 const outputRoot = transpileTestModules([
+  'src/services/websocket/serverUrl.ts',
+  'src/services/keyboard/shortcuts.ts',
+  'src/types/protocol.ts',
   'src/constants/config.ts',
   'src/services/websocket/WebSocketClient.ts',
 ]);
@@ -125,3 +128,31 @@ test('coalesces adjacent queued deltas while preserving click and gesture order'
 });
 
 test.after(cleanupTestModules);
+
+test('server OS greeting updates platform, ignores malformed frames and detached old sockets', () => {
+  const previous = globalThis.WebSocket;
+  globalThis.WebSocket = MockWebSocket;
+  MockWebSocket.instances = [];
+  try {
+    const client = new WebSocketClient(),
+      platforms = [];
+    client.subscribePlatform((os) => platforms.push(os));
+    client.connect('ws://pc:8765');
+    const socket = MockWebSocket.instances[0];
+    socket.open();
+    socket.onmessage({ data: 'garbage' });
+    socket.onmessage({
+      data: JSON.stringify({ version: 1, type: 'server.info', payload: { os: 'macos' } }),
+    });
+    assert.deepEqual(platforms, ['macos']);
+    const oldHandler = socket.onmessage;
+    client.connect('ws://other:8765');
+    oldHandler({
+      data: JSON.stringify({ version: 1, type: 'server.info', payload: { os: 'windows' } }),
+    });
+    assert.deepEqual(platforms, ['macos']);
+    client.disconnect();
+  } finally {
+    globalThis.WebSocket = previous;
+  }
+});

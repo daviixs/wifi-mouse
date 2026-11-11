@@ -40,6 +40,9 @@
 "permission.allowed" = "Agente autorizado a controlar mouse e teclado.";
 "permission.checking" = "Verificando a autorização real do agente…";
 "permission.required" = "Permita o controle deste Mac";
-"permission.explanation" = "Autorize Remote Mouse (ou remote-mouse-agent) em Ajustes do Sistema → Privacidade e Segurança → Acessibilidade. O painel será liberado automaticamente após a confirmação.";
-"permission.helper.help" = "Se o agente não aparecer na lista, use + nos ajustes para adicioná-lo. O botão abaixo mostra o executável correto no Finder.";
+"permission.explanation" = "Em Ajustes do Sistema → Privacidade e Segurança → Acessibilidade, autorize esta instalação do Remote Mouse. A solicitação vem do agente dentro do app; o macOS pode mostrá-la com o nome Remote Mouse. O painel libera após o agente confirmar a autorização.";
+"permission.helper.help" = "Use a cópia instalada em /Applications, aberta pelo Finder, não o executável no Terminal nem a imagem DMG. Se houver uma entrada antiga de outro build, remova apenas essa entrada nos ajustes e adicione o app atual com +. Adicione o agente separadamente somente se o macOS pedir esse executável.";
 "permission.automatic" = "A verificação é automática. Nenhum servidor é aberto durante esta etapa.";
+"permission.mismatch" = "O app informa autorização, mas o agente de entrada ainda responde não autorizado. Não é seguro liberar o controle. Solicite novamente abaixo; confira a instalação atual nos ajustes. Se persistir, copie o diagnóstico para identificar caminho, assinatura e resultado real.";
+"button.recheck" = "Verificar novamente";
+"button.permission.diagnostic" = "Copiar diagnóstico de permissão";

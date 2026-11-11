@@ -12,7 +12,7 @@
     <key>LSMinimumSystemVersion</key><string>13.0</string>
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
-    <key>NSPrincipalClass</key><string>NSApplication</string>
+    <key>NSPrincipalClass</key><string>RemoteMouseApplication</string>
     <key>CFBundleDevelopmentRegion</key><string>en</string>
     <key>CFBundleLocalizations</key><array><string>pt-BR</string><string>en</string><string>es</string></array>
     <key>NSLocalNetworkUsageDescription</key><string>O Remote Mouse usa a rede local para permitir que seu celular controle este Mac.</string>

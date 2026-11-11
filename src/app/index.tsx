@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   useWindowDimensions,
   ScrollView,
@@ -26,7 +25,9 @@ import { LaptopIllustration } from '../components/illustrations/LaptopIllustrati
 import { FirstRunSetupNotice } from '../components/FirstRunSetupNotice';
 import { FirstRunOnboarding } from '../components/FirstRunOnboarding';
 import { COLORS, RADIUS, SPACE } from '../theme/tokens';
-import { isValidIpv4Address } from '../services/websocket/serverUrl';
+import { focusedAddressScrollOffset } from '../services/websocket/addressInput';
+import { APP_CONFIG } from '../constants/config';
+import { parseServerAddress } from '../services/websocket/serverUrl';
 import { useConnectionStore } from '../stores/connection.store';
 import { DiscoveredComputers } from '../components/DiscoveredComputers';
 import { useComputerDiscovery } from '../hooks/useComputerDiscovery';
@@ -42,6 +43,23 @@ import {
 
 export default function HomeScreen() {
   const [address, setAddress] = useState('');
+  const scrollRef = useRef<ScrollView>(null);
+  const addressFocused = useRef(false);
+  const mainTop = useRef(0),
+    cardTop = useRef(0),
+    inputTop = useRef(0);
+  const revealAddress = () =>
+    scrollRef.current?.scrollTo({
+      y: focusedAddressScrollOffset(mainTop.current, cardTop.current, inputTop.current, SPACE.md),
+      animated: true,
+    });
+
+  useEffect(() => {
+    const listener = Keyboard.addListener('keyboardDidShow', () => {
+      if (addressFocused.current) revealAddress();
+    });
+    return () => listener.remove();
+  }, []);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [isMacHelpVisible, setIsMacHelpVisible] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -60,7 +78,7 @@ export default function HomeScreen() {
     void loadLastComputer(AsyncStorage).then((stored) => {
       if (!active || !stored) return;
       setLastComputer(stored);
-      setAddress((current) => current || stored.ip);
+      setAddress((current) => current || `${stored.ip}:${stored.port ?? APP_CONFIG.agentPort}`);
     });
     return () => {
       active = false;
@@ -69,28 +87,33 @@ export default function HomeScreen() {
 
   const connect = async (target?: DiscoveredComputer) => {
     if (isConnecting) return;
-    const normalizedAddress = target ? target.ip : address.trim();
-    if (!isValidIpv4Address(normalizedAddress)) {
-      setValidationMessage('Digite um endereço IPv4 válido, como 192.168.1.10.');
+    const endpoint = parseServerAddress(target ? `${target.ip}:${target.port}` : address);
+    if (!endpoint) {
+      setValidationMessage('Digite IP ou nome e porta opcional, como 192.168.1.10:8765.');
       return;
     }
 
+    const normalizedAddress = endpoint.address;
     Keyboard.dismiss();
     setValidationMessage(null);
     setConnectionError(null);
     setPendingAddress(normalizedAddress);
     let outcome;
     try {
-      outcome = await connectToServer(normalizedAddress);
+      outcome = await connectToServer(
+        normalizedAddress,
+        target ? { os: target.os, name: target.name } : undefined,
+      );
     } catch {
       outcome = { kind: 'failed' as const, error: 'Não foi possível conectar ao computador.' };
     }
     setPendingAddress(null);
     if (outcome.kind === 'connected') {
       const remembered: LastComputer = {
-        ip: normalizedAddress,
-        name: target?.name ?? (lastComputer?.ip === normalizedAddress ? lastComputer.name : null),
-        id: target?.id ?? (lastComputer?.ip === normalizedAddress ? lastComputer.id : null),
+        ip: endpoint.host,
+        port: endpoint.port,
+        name: target?.name ?? (lastComputer?.ip === endpoint.host ? lastComputer.name : null),
+        id: target?.id ?? (lastComputer?.ip === endpoint.host ? lastComputer.id : null),
       };
       setLastComputer(remembered);
       setAddress(normalizedAddress);
@@ -108,19 +131,26 @@ export default function HomeScreen() {
   return (
     <ScreenBackground>
       <SafeAreaView style={styles.safeArea}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.flex}
-        >
+        <KeyboardAvoidingView behavior="padding" style={styles.flex}>
           <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
             <ScrollView
+              ref={scrollRef}
+              onLayout={() => {
+                if (addressFocused.current && Keyboard.isVisible()) revealAddress();
+              }}
+              keyboardDismissMode="on-drag"
               contentContainerStyle={styles.screen}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
               <AppHeader onHelp={() => setIsMacHelpVisible(true)} />
 
-              <View style={styles.main}>
+              <View
+                style={styles.main}
+                onLayout={(event) => {
+                  mainTop.current = event.nativeEvent.layout.y;
+                }}
+              >
                 <View style={styles.hero}>
                   <LaptopIllustration width={heroWidth} />
                 </View>
@@ -142,7 +172,12 @@ export default function HomeScreen() {
                   status={discovery.status}
                 />
 
-                <GlassCard style={styles.connectionCard}>
+                <GlassCard
+                  style={styles.connectionCard}
+                  onLayout={(event) => {
+                    cardTop.current = event.nativeEvent.layout.y;
+                  }}
+                >
                   <View style={styles.cardHeading}>
                     <Text style={styles.cardTitle}>Ou digite o IP manualmente</Text>
                     <Text style={styles.cardSubtitle}>
@@ -153,23 +188,35 @@ export default function HomeScreen() {
                   </View>
 
                   <Text style={styles.inputLabel}>IP DO COMPUTADOR</Text>
-                  <View style={[styles.inputRow, validationMessage && styles.inputInvalid]}>
+                  <View
+                    style={[styles.inputRow, validationMessage && styles.inputInvalid]}
+                    onLayout={(event) => {
+                      inputTop.current = event.nativeEvent.layout.y;
+                    }}
+                  >
                     <Laptop color={COLORS.accent} size={24} strokeWidth={1.8} />
                     <TextInput
                       accessibilityLabel="Endereço IP do computador"
                       autoCapitalize="none"
                       autoCorrect={false}
                       keyboardAppearance="dark"
-                      keyboardType="decimal-pad"
-                      maxLength={15}
+                      keyboardType="url"
+                      maxLength={270}
                       onChangeText={(value) => {
-                        setAddress(value.replace(/[^\d.,]/g, '').replace(/,/g, '.'));
+                        setAddress(value);
                         if (validationMessage) setValidationMessage(null);
                         if (connectionError) setConnectionError(null);
                       }}
+                      onFocus={() => {
+                        addressFocused.current = true;
+                        if (Keyboard.isVisible()) revealAddress();
+                      }}
+                      onBlur={() => {
+                        addressFocused.current = false;
+                      }}
                       editable={!isConnecting}
                       onSubmitEditing={() => void connect()}
-                      placeholder="192.168.1.10"
+                      placeholder="192.168.1.10:8765"
                       placeholderTextColor={COLORS.muted}
                       returnKeyType="go"
                       selectionColor={COLORS.accent}

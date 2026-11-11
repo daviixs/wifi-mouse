@@ -1,10 +1,11 @@
+import { useConnectionStore } from '../stores/connection.store';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Command, X } from 'lucide-react-native';
 
 import { COLORS, RADIUS, SHADOWS, SPACE } from '../theme/tokens';
 import {
-  SHORTCUT_GROUPS,
+  shortcutGroupsForHost,
   buildShortcutCommand,
   type ShortcutOption,
 } from '../services/keyboard/shortcuts';
@@ -14,9 +15,41 @@ type ShortcutsListProps = { onSelect: (option: ShortcutOption) => void };
 
 /** Grouped shortcut buttons, reused by the touchpad modal and the "Mais" sheet. */
 export function ShortcutsList({ onSelect }: ShortcutsListProps) {
+  const detectedOs = useConnectionStore((state) => state.targetOs);
+  const sessionId = useConnectionStore((state) => state.sessionId);
+  const [choice, setChoice] = useState({ sessionId: -1, os: 'unknown' });
+  const isKnownHost = ['macos', 'windows', 'linux'].includes(detectedOs);
+  const os = isKnownHost ? detectedOs : choice.sessionId === sessionId ? choice.os : 'unknown';
   return (
     <ScrollView contentContainerStyle={styles.list}>
-      {SHORTCUT_GROUPS.map((group) => (
+      {!isKnownHost && (
+        <View style={styles.group}>
+          <Text style={styles.groupTitle}>
+            DESTINO NÃO IDENTIFICADO · ESCOLHA O SISTEMA DO COMPUTADOR
+          </Text>
+          {['macos', 'windows', 'linux'].map((platform) => (
+            <Pressable
+              key={platform}
+              accessibilityRole="button"
+              accessibilityState={{ selected: os === platform }}
+              onPress={() => setChoice({ sessionId, os: platform })}
+              style={styles.option}
+            >
+              <Text style={styles.optionLabel}>
+                {platform === 'macos'
+                  ? 'Mac · Cmd'
+                  : platform === 'windows'
+                    ? 'Windows · Ctrl / Alt'
+                    : 'Linux · Ctrl / Alt'}
+              </Text>
+              <Text style={styles.optionDescription}>
+                {os === platform ? 'Selecionado' : 'Escolher'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+      {shortcutGroupsForHost(os).map((group) => (
         <View key={group.title} style={styles.group}>
           <Text style={styles.groupTitle}>{group.title}</Text>
           {group.options.map((option) => (

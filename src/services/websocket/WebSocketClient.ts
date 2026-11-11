@@ -1,3 +1,4 @@
+import { parseServerPlatform } from '../keyboard/shortcuts';
 import { APP_CONFIG } from '../../constants/config';
 import type { MouseCommand } from '../../types/protocol';
 
@@ -15,6 +16,12 @@ export const CONNECTION_ERROR_MESSAGES = {
 } as const;
 
 export class WebSocketClient {
+  private readonly platformListeners = new Set<(os: string) => void>();
+  subscribePlatform(listener: (os: string) => void): () => void {
+    this.platformListeners.add(listener);
+    return () => this.platformListeners.delete(listener);
+  }
+
   private connection: WebSocket | null = null;
   private url: string | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -124,6 +131,11 @@ export class WebSocketClient {
         this.detachConnection();
         this.scheduleReconnect();
       }, APP_CONFIG.connectTimeoutMs);
+      connection.onmessage = (event) => {
+        if (this.connection !== connection) return;
+        const os = parseServerPlatform(event.data);
+        if (os) for (const listener of this.platformListeners) listener(os);
+      };
       connection.onopen = () => {
         if (this.connection !== connection) return;
         this.clearOpenTimer();

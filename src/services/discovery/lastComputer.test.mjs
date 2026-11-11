@@ -7,7 +7,13 @@ import {
   transpileTestModules,
 } from '../../../scripts/transpile-test-modules.mjs';
 
-const outputRoot = transpileTestModules(['src/services/discovery/lastComputer.ts']);
+const outputRoot = transpileTestModules([
+  'src/services/websocket/serverUrl.ts',
+  'src/constants/config.ts',
+  'src/services/keyboard/shortcuts.ts',
+  'src/types/protocol.ts',
+  'src/services/discovery/lastComputer.ts',
+]);
 const { loadLastComputer, saveLastComputer, LAST_COMPUTER_STORAGE_KEY } = createRequire(
   import.meta.url,
 )(`${outputRoot}/src/services/discovery/lastComputer.js`);
@@ -38,7 +44,7 @@ test('ignores missing, corrupt or invalid values', async () => {
   assert.equal(await loadLastComputer(memoryStorage()), null);
   assert.equal(await loadLastComputer(memoryStorage({ [LAST_COMPUTER_STORAGE_KEY]: '{' })), null);
   assert.equal(
-    await loadLastComputer(memoryStorage({ [LAST_COMPUTER_STORAGE_KEY]: '{"ip":"abc"}' })),
+    await loadLastComputer(memoryStorage({ [LAST_COMPUTER_STORAGE_KEY]: '{"ip":"bad host"}' })),
     null,
   );
   assert.deepEqual(
@@ -51,4 +57,11 @@ test('ignores missing, corrupt or invalid values', async () => {
   };
   assert.equal(await loadLastComputer(failing), null);
   await saveLastComputer(failing, { ip: '10.0.0.2', name: null, id: null });
+});
+
+test('remembers a DNS hostname and custom port without reverting to 8765', async () => {
+  const computer = { ip: 'my-mac.local', port: 9000, name: 'Meu Mac', id: null };
+  const storage = memoryStorage();
+  await saveLastComputer(storage, computer);
+  assert.deepEqual(await loadLastComputer(storage), computer);
 });

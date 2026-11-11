@@ -1,3 +1,4 @@
+import type { ComputerOs } from '../services/discovery/discoveredComputers';
 import { create } from 'zustand';
 
 import { webSocketClient, type SocketStatus } from '../services/websocket/WebSocketClient';
@@ -9,6 +10,8 @@ import { createServerUrl } from '../services/websocket/serverUrl';
 import type { MouseCommand } from '../types/protocol';
 
 export type ConnectionState = {
+  sessionId: number;
+  targetOs: ComputerOs;
   connected: boolean;
   deviceId: string | null;
   deviceName: string | null;
@@ -19,7 +22,10 @@ export type ConnectionState = {
 
 type ConnectionActions = {
   /** Starts a connection and resolves only after the socket opens, fails or is cancelled. */
-  connectToServer: (address: string) => Promise<ConnectionOutcome>;
+  connectToServer: (
+    address: string,
+    target?: { os: ComputerOs; name: string },
+  ) => Promise<ConnectionOutcome>;
   /** Aborts an in-flight attempt (or a session) and clears any error. */
   cancelConnection: () => void;
   clearError: () => void;
@@ -28,6 +34,8 @@ type ConnectionActions = {
 };
 
 export const useConnectionStore = create<ConnectionState & ConnectionActions>((set, get) => ({
+  sessionId: 0,
+  targetOs: 'unknown',
   connected: false,
   deviceId: null,
   deviceName: null,
@@ -35,13 +43,15 @@ export const useConnectionStore = create<ConnectionState & ConnectionActions>((s
   status: 'disconnected',
   error: null,
 
-  connectToServer: (address) => {
+  connectToServer: (address, target) => {
     webSocketClient.disconnect();
     const serverUrl = createServerUrl(address);
     set({
       connected: false,
+      sessionId: get().sessionId + 1,
       deviceId: address,
-      deviceName: address,
+      deviceName: target?.name ?? address,
+      targetOs: target?.os ?? 'unknown',
       serverUrl,
       status: 'connecting',
       error: null,
@@ -66,6 +76,7 @@ export const useConnectionStore = create<ConnectionState & ConnectionActions>((s
       deviceId: null,
       deviceName: null,
       serverUrl: null,
+      targetOs: 'unknown',
       status: 'disconnected',
       error: null,
     });
@@ -82,4 +93,10 @@ webSocketClient.subscribe((status, error) => {
     connected: status === 'connected',
     error: error ?? null,
   });
+});
+
+// A greeting from the connected server is authoritative over discovery hints.
+webSocketClient.subscribePlatform((os) => {
+  if (os === 'macos' || os === 'windows' || os === 'linux')
+    useConnectionStore.setState({ targetOs: os });
 });

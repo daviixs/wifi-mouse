@@ -60,10 +60,14 @@ enum L10n {
 struct AccessibilityState: Equatable {
     private(set) var trusted: Bool? = nil
     private(set) var problem: String? = nil
+    // Diagnostic only: never OR the container permission into the helper gate.
+    private(set) var appTrusted: Bool? = nil
+    var attributionMismatch: Bool { appTrusted == true && trusted == false }
     var isBlocking: Bool { trusted != true }
 
-    mutating func confirm(_ trusted: Bool?, problem: String? = nil) {
+    mutating func confirm(_ trusted: Bool?, problem: String? = nil, appTrusted: Bool? = nil) {
         self.trusted = trusted
         self.problem = problem
+        self.appTrusted = appTrusted
     }
 }
