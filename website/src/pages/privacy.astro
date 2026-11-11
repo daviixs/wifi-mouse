@@ -1,0 +1,292 @@
+---
+import Base from '../layouts/Base.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import Breadcrumbs from '../components/blog/Breadcrumbs.astro';
+import { site } from '../config/site';
+import { absolute } from '../lib/blog';
+import '../styles/blog.css';
+
+const title = 'Privacy Policy | ConnectMouse';
+const description =
+  'ConnectMouse privacy policy: the phone and computer talk only over your local Wi-Fi. No accounts, no analytics, and no data sent to us or to third parties.';
+const effectiveDate = 'November 11, 2026';
+const url = absolute(site.links.privacy, Astro.site);
+const issues = site.links.issues;
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    name: 'Privacy Policy',
+    description,
+    url,
+    inLanguage: 'en',
+    datePublished: '2026-11-11',
+    dateModified: '2026-11-11',
+    isPartOf: { '@type': 'WebSite', name: site.name, url: absolute('/', Astro.site) },
+    about: {
+      '@type': 'SoftwareApplication',
+      name: site.name,
+      applicationCategory: 'UtilitiesApplication',
+      operatingSystem: 'Android, iOS, macOS 13+, Windows 10/11',
+    },
+    publisher: { '@type': 'Organization', name: 'Society Avid' },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: absolute('/', Astro.site) },
+      { '@type': 'ListItem', position: 2, name: 'Privacy Policy', item: url },
+    ],
+  },
+];
+---
+
+<Base title={title} description={description} jsonLd={jsonLd}>
+  <Header />
+  <main id="main" class="blog-page legal-page">
+    <div class="blog-bg" aria-hidden="true">
+      <span class="hero-blob hero-blob-green"></span>
+      <span class="hero-blob hero-blob-blue"></span>
+    </div>
+
+    <article class="container legal-wrap">
+      <header class="legal-hero">
+        <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Privacy Policy' }]} />
+        <p class="post-tags">
+          <span>Society Avid</span>
+          <span class="guide-dot" aria-hidden="true">•</span>
+          <span>Effective {effectiveDate}</span>
+        </p>
+        <h1 class="post-title">Privacy Policy</h1>
+        <p class="post-lead">
+          How Society Avid handles information in ConnectMouse for Windows, macOS, iOS and Android, and on this
+          website.
+        </p>
+      </header>
+
+      <div class="prose legal-prose" data-prose>
+        <p>
+          ConnectMouse is built to work only on your local network. The phone app talks directly to the desktop app
+          on your computer. There is no ConnectMouse cloud account, no sign-in, no advertising, and no analytics
+          service in the apps. We do not collect, sell or share your personal information.
+        </p>
+
+        <h2 id="who-this-covers">Who this policy covers</h2>
+        <p>
+          This Privacy Policy describes how Society Avid (“we”, “us”) handles information in ConnectMouse, a product
+          that includes the ConnectMouse apps for Windows, macOS, iOS and Android, and this website. ConnectMouse
+          lets you use your phone as a wireless mouse, touchpad and keyboard for a computer on the same local
+          network. The effective date of this policy is {effectiveDate}.
+        </p>
+
+        <h2 id="how-it-works">How ConnectMouse works</h2>
+        <p>
+          When you start the desktop app (the Windows tray app or the macOS menu bar app), it runs a local agent
+          that:
+        </p>
+        <ol>
+          <li>
+            Listens for a WebSocket connection on TCP port <code>8765</code> (by default) on your computer.
+          </li>
+          <li>
+            Announces the computer on your local network with mDNS / DNS-SD (<code>_remotemouse._tcp</code>) on UDP
+            port <code>5353</code>, so the phone can find it. That announcement includes the computer’s name,
+            operating system type (for example, <code>windows</code> or <code>macos</code>), protocol version and
+            local network address.
+          </li>
+          <li>
+            Accepts commands from the phone you connect and injects them locally as mouse and keyboard input (on
+            Windows, through the SendInput API; on macOS and other desktops, through the same agent’s input layer).
+          </li>
+        </ol>
+        <p>
+          The phone app discovers computers on the same Wi-Fi network or lets you type the computer’s address. It
+          then opens a WebSocket to that address on port <code>8765</code> and sends JSON commands (pointer
+          movement, clicks, scroll, typed text, shortcuts and media keys). The desktop agent applies those commands
+          on the computer. It does not forward them to us or to any other server.
+        </p>
+        <p>
+          You do not need an internet connection for ConnectMouse to work, only that the phone and the computer are
+          on the same local network.
+        </p>
+
+        <h2 id="information-processed">Information that is processed</h2>
+        <p>
+          While you use the app, the following information is processed on your devices and, where needed, sent
+          between them on your local network:
+        </p>
+        <ul>
+          <li>
+            <strong>Input commands from the phone:</strong> pointer movement, clicks, scrolling, text you type in
+            the in-app keyboard, keyboard shortcuts and media or volume keys. The desktop agent uses these commands
+            only to control the computer in real time. We do not receive this data, and the apps do not keep a
+            history of what you typed or which sites you visited.
+          </li>
+          <li>
+            <strong>Connection details on the local network:</strong> the computer’s hostname, local IP address and
+            port, and the local IP address of the phone or other device that connects to the agent.
+          </li>
+          <li>
+            <strong>Discovery records</strong> described above (computer name, OS type, protocol version), visible
+            to devices on the same local network while the desktop server is running.
+          </li>
+        </ul>
+        <p>
+          The desktop agent may also write brief status messages to the local console or process log, such as when a
+          connection is opened or closed (including the connecting device’s local IP address) and periodic counts of
+          command types (for example, how many moves, clicks or key events occurred, not the text you typed). These
+          messages stay on your computer.
+        </p>
+        <p>
+          On macOS, if you choose <strong>Copy permission diagnostics</strong>, the app copies technical information
+          to your clipboard to help with a support request. That information is limited to app and helper paths,
+          process identifiers, Accessibility permission results and public code-signature metadata. It is not sent
+          automatically. You decide whether to paste it into a bug report.
+        </p>
+
+        <h2 id="information-stored">Information stored on your devices</h2>
+        <p>ConnectMouse stores a small amount of preference and convenience data only on the device itself:</p>
+        <ul>
+          <li>
+            <strong>Phone app (iOS and Android):</strong> whether you have dismissed the first-run tips; your
+            touchpad sensitivity; whether the hardware volume keys should control the computer; and the last
+            computer you connected to (its local address, and if available its display name and identifier). This is
+            stored with the operating system’s local app storage. The phone app follows the language of the device
+            and does not store a separate language preference.
+          </li>
+          <li>
+            <strong>Windows app:</strong> your language choice (Portuguese, English or Spanish) and a flag that the
+            first-run tray notice has been shown, in the Windows registry under
+            <code>HKEY_CURRENT_USER\Software\RemoteMouse</code>.
+          </li>
+          <li>
+            <strong>macOS app:</strong> the app does not keep its own settings file for language. It follows the
+            language of macOS, including any per-app language you set in System Settings.
+          </li>
+        </ul>
+        <p>
+          You can remove this data by clearing the app’s data or uninstalling the app (and, on Windows, by deleting
+          that registry key).
+        </p>
+
+        <h2 id="permissions">Permissions the apps request</h2>
+        <p>
+          The apps request only the system permissions needed to work on the local network and to control the
+          computer you have installed them on:
+        </p>
+        <ul>
+          <li>
+            <strong>Android:</strong> network access, Wi-Fi state, and multicast (so the phone can discover the
+            computer with mDNS). Android also requires the Internet permission for any network socket, including
+            connections that stay on the local network. The app is configured to allow cleartext (non-TLS) traffic
+            because the local WebSocket is not encrypted, as explained below.
+          </li>
+          <li>
+            <strong>iOS:</strong> Local Network access and Bonjour for the <code>_remotemouse._tcp</code> service,
+            so the phone can find and connect to the computer on your Wi-Fi network.
+          </li>
+          <li>
+            <strong>macOS:</strong> Local Network access, and Accessibility permission so the agent can move the
+            pointer, click and type. The menu bar app will not start the input server until Accessibility is
+            granted.
+          </li>
+          <li>
+            <strong>Windows:</strong> the Microsoft Store package declares full-trust desktop privileges
+            (<code>runFullTrust</code>) because ConnectMouse is a native Win32 app that injects input and runs a
+            local server. It also declares standard local-network capabilities. Firewall rules allow inbound TCP
+            <code>8765</code> and UDP <code>5353</code> on private or domain networks.
+          </li>
+        </ul>
+        <p>The phone app does not use the camera, microphone, location, contacts or photos. It does not scan QR codes.</p>
+
+        <h2 id="what-we-do-not-do">What we do not do</h2>
+        <ul>
+          <li>We do not create or require an account.</li>
+          <li>We do not include analytics, advertising, crash-reporting or telemetry software in the ConnectMouse apps.</li>
+          <li>We do not sell or share personal information with third parties, because we do not collect it.</li>
+          <li>We do not send your input, contacts, files or browsing activity to the internet or to Society Avid.</li>
+        </ul>
+        <p>
+          This website is a static marketing site. It does not set analytics or advertising cookies, and it does not
+          have user accounts. If you visit the site, the party that hosts it may process ordinary web server logs
+          (such as IP address, date and browser type) under that host’s own policy. We do not run a separate
+          analytics product on the site.
+        </p>
+        <p>
+          The Windows package may declare an <code>internetClient</code> capability, which Microsoft uses for
+          network access in general. The ConnectMouse apps themselves do not contact Society Avid or other online
+          services during normal use.
+        </p>
+
+        <h2 id="security">Security</h2>
+        <div class="callout callout-warning">
+          <p>
+            Traffic between the phone and the computer travels only on your local network. It is
+            <strong>not encrypted</strong>: the connection is a plain WebSocket (<code>ws://</code>), with no TLS,
+            and the current version has no pairing code or password. Anyone who can reach TCP port
+            <code>8765</code> on that computer while the server is running could send mouse and keyboard commands to
+            it.
+          </p>
+        </div>
+        <p>
+          For that reason, use ConnectMouse on networks you trust, such as your home or office Wi-Fi, do not expose
+          port <code>8765</code> to the internet, and stop the desktop server before you join a public or untrusted
+          network. Keep the phone and the computer in your control. Uninstalling the apps or stopping the desktop
+          server ends the connection.
+        </p>
+
+        <h2 id="children">Children’s privacy</h2>
+        <p>
+          ConnectMouse is not directed at children under 13, and we do not knowingly collect personal information
+          from children. Because the apps do not collect personal information in the first place, we do not have a
+          children’s profile or a parental sign-in.
+        </p>
+
+        <h2 id="changes">Changes to this policy</h2>
+        <p>
+          We may update this Privacy Policy if the product changes. The effective date at the top of this page will
+          change when we do. The current version will always be published at this URL. If a change is material, we
+          will also describe it in the project’s release notes or on this website when we can.
+        </p>
+
+        <h2 id="contact">Contact</h2>
+        <p>ConnectMouse is published by Society Avid.</p>
+        <p>
+          We do not publish a support email address. For questions about this policy, or about the product, please
+          open an issue in the public repository:{' '}
+          <a href={issues} target="_blank" rel="noopener">{issues}</a>. You can also review the source code of the
+          apps and the local-network protocol in that repository.
+        </p>
+      </div>
+    </article>
+  </main>
+  <Footer />
+</Base>
+
+<style>
+  .legal-wrap {
+    max-width: 800px;
+    padding-bottom: var(--section-pt);
+  }
+  .legal-hero {
+    padding-bottom: 40px;
+  }
+  .legal-hero .breadcrumbs {
+    margin-bottom: 26px;
+  }
+  .legal-prose {
+    padding-top: 48px;
+    border-top: 1px solid var(--c-border);
+  }
+  @media (max-width: 767px) {
+    .legal-hero {
+      padding-bottom: 28px;
+    }
+    .legal-prose {
+      padding-top: 32px;
+    }
+  }
+</style>

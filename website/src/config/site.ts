@@ -31,6 +31,7 @@ export const site = {
     license: `${blob}/LICENSE`,
     msStore: 'https://apps.microsoft.com/detail/9MZHLB2RMLX8',
     blog: '/blog/',
+    privacy: '/privacy/',
   },
   /** Phone and Mac are PLACEHOLDERS (GitHub Releases) until real store/download URLs exist. */
   downloads: {

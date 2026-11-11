@@ -26,6 +26,7 @@ from `src/assets/screens/` with relative paths so `astro:assets` optimizes them.
 ## Structure
 
 - `src/pages/index.astro` — page composition (one component per section).
+- `src/pages/privacy.astro` — Privacy Policy at `/privacy/`, linked from the footer (the Microsoft Store listing URL).
 - `src/components/` — sections plus reusable pieces (`PhoneMockup`, `Screen`, `Heading`, `Button`, `Icon`).
 - `src/config/site.ts` — **every outbound link** (downloads, GitHub, docs). Edit here only.
 - `src/assets/screens/` — real app screenshots (Expo web build, 390×844 viewport), optimized to AVIF/WebP
