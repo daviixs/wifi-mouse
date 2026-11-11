@@ -119,6 +119,8 @@ pub struct Strings {
     pub button_quit: &'static str,
     pub button_firewall: &'static str,
     pub button_language: &'static str,
+    pub menu_autostart: &'static str,
+    pub menu_autostart_settings: &'static str,
     pub connection_help: &'static str,
     pub network_online: &'static str,
     pub network_offline: &'static str,
@@ -164,6 +166,8 @@ pub static PT_BR: Strings = Strings {
     button_quit: "Sair",
     button_firewall: "Abrir Firewall do Windows",
     button_language: "Idioma",
+    menu_autostart: "Iniciar com o Windows",
+    menu_autostart_settings: "Iniciar com o Windows (ativar em Configurações)…",
     connection_help: "No celular, use a mesma rede Wi-Fi. O PC aparece automaticamente; se não aparecer, digite o IP acima. Use apenas redes confiáveis.",
     network_online: "Online",
     network_offline: "Offline",
@@ -205,6 +209,8 @@ pub static EN: Strings = Strings {
     button_quit: "Quit",
     button_firewall: "Open Windows Firewall",
     button_language: "Language",
+    menu_autostart: "Start with Windows",
+    menu_autostart_settings: "Start with Windows (turn on in Settings)…",
     connection_help: "Use the same Wi-Fi network on your phone. Your PC appears automatically; otherwise, enter the IP above. Use trusted networks only.",
     network_online: "Online",
     network_offline: "Offline",
@@ -246,6 +252,8 @@ pub static ES: Strings = Strings {
     button_quit: "Salir",
     button_firewall: "Abrir Firewall de Windows",
     button_language: "Idioma",
+    menu_autostart: "Iniciar con Windows",
+    menu_autostart_settings: "Iniciar con Windows (activar en Configuración)…",
     connection_help: "Usa la misma red Wi-Fi en tu teléfono. El PC aparece automáticamente; si no aparece, introduce la IP indicada. Usa solo redes de confianza.",
     network_online: "En línea",
     network_offline: "Sin conexión",
@@ -292,6 +300,8 @@ mod tests {
             s.button_quit,
             s.button_firewall,
             s.button_language,
+            s.menu_autostart,
+            s.menu_autostart_settings,
             s.connection_help,
             s.network_online,
             s.network_offline,
@@ -353,5 +363,16 @@ mod tests {
             "Port 8765 · waiting to start"
         );
         assert_eq!(fill(PT_BR.error_agent, "x {}"), "Falha no servidor: x {}");
+    }
+
+    #[test]
+    fn autostart_menu_is_translated() {
+        assert_eq!(PT_BR.menu_autostart, "Iniciar com o Windows");
+        assert_eq!(EN.menu_autostart, "Start with Windows");
+        assert_eq!(ES.menu_autostart, "Iniciar con Windows");
+        for lang in Lang::ALL {
+            let s = lang.strings();
+            assert!(s.menu_autostart_settings.starts_with(s.menu_autostart));
+        }
     }
 }

@@ -16,6 +16,13 @@ path = "src/main.rs"
 [target.'cfg(windows)'.dependencies]
 remote-mouse-agent = { path = "../rust-agent" }
 tokio = { version = "1", default-features = false, features = ["rt", "sync"] }
+# WinRT StartupTask (start with Windows) for the MSIX/Store build only.
+windows = { version = "0.61", default-features = false, features = [
+  "ApplicationModel",
+  "ApplicationModel_Activation",
+  "Foundation",
+  "std",
+] }
 windows-sys = { version = "0.61", features = [
   "Win32_Foundation",
   "Win32_Globalization",
@@ -27,6 +34,7 @@ windows-sys = { version = "0.61", features = [
   "Win32_System_Memory",
   "Win32_System_Ole",
   "Win32_System_Registry",
+  "Win32_Storage_Packaging_Appx",
   "Win32_System_SystemInformation",
   "Win32_System_Threading",
   "Win32_UI_Controls",

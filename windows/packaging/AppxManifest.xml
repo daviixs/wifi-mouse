@@ -12,9 +12,10 @@
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
   xmlns:desktop2="http://schemas.microsoft.com/appx/manifest/desktop/windows10/2"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap desktop2 rescap">
+  IgnorableNamespaces="uap desktop desktop2 rescap">
 
   <Identity
     Name="__IDENTITY_NAME__"
@@ -55,6 +56,18 @@
           ShortName="__SHORT_NAME__" />
         <uap:SplashScreen Image="Assets\SplashScreen.png" BackgroundColor="#101211" />
       </uap:VisualElements>
+      <Extensions>
+        <!--
+          "Iniciar com o Windows" na versão MSIX/Store: apps empacotados ignoram
+          a chave Run. Começa desligado (Enabled="false"); o menu da bandeja
+          liga/desliga pela API StartupTask (windows/src/autostart.rs, mesmo
+          TaskId). O usuário também controla em Configurações → Aplicativos →
+          Inicialização.
+        -->
+        <desktop:Extension Category="windows.startupTask" Executable="RemoteMouse.exe" EntryPoint="Windows.FullTrustApplication">
+          <desktop:StartupTask TaskId="ConnectMouseStartup" Enabled="false" DisplayName="__SHORT_NAME__" />
+        </desktop:Extension>
+      </Extensions>
     </Application>
   </Applications>
 
