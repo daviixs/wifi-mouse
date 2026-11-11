@@ -15,9 +15,11 @@ interface Props {
   eager?: boolean;
   /** Fade the lower part of the device into the page, as in the reference hero. */
   fade?: boolean;
+  /** Candidate widths for the responsive image (defaults suit ~300px CSS at 2x). */
+  widths?: number[];
 }
 
-const { src, alt, class: className = '', sizes = '(min-width: 1024px) 300px, 70vw', eager = false, fade = false } = Astro.props;
+const { src, alt, class: className = '', sizes = '(min-width: 1024px) 300px, 70vw', eager = false, fade = false, widths = [300, 450, 600, 780] } = Astro.props;
 ---
 
 <figure class:list={['phone', className, { 'phone-fade': fade }]}>
@@ -34,7 +36,7 @@ const { src, alt, class: className = '', sizes = '(min-width: 1024px) 300px, 70v
       <Picture
         src={src}
         alt={alt}
-        widths={[300, 450, 600, 780]}
+        widths={widths}
         sizes={sizes}
         formats={['avif', 'webp']}
         fallbackFormat="webp"

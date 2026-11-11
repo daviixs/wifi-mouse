@@ -263,6 +263,15 @@ h1, h2, h3, h4, h5 { color: var(--c-dark); font-weight: 400; }
 .bento-card:hover .screen-panel img { transform: scale(1.03); }
 .bento-lg .screen-panel { height: 300px; margin-inline: 0; }
 .bento-sm .screen-panel { height: 200px; }
+/* Large cards: a full phone screen in the device frame, peeking up from the card bottom. */
+.bento-device { position: relative; margin-top: auto; padding-top: 36px; height: 432px; overflow: hidden; display: flex; justify-content: center; -webkit-mask-image: linear-gradient(180deg, #000 78%, transparent 100%); mask-image: linear-gradient(180deg, #000 78%, transparent 100%); }
+.bento-device .phone { flex: none; width: 300px; margin: 0; transition: transform 0.9s var(--ease); }
+.bento-card:hover .bento-device .phone { transform: translateY(-8px); }
+/* Small cards: a whole sheet/card cropped at its natural boundaries, same 390:430 frame for all three. */
+.bento-panel { position: relative; margin-top: auto; padding-top: 32px; }
+.bento-panel picture { display: block; overflow: hidden; border-radius: 22px 22px 0 0; background: #081640; box-shadow: 0 0 0 6px #fff, 0 -10px 40px -20px rgb(20 30 80 / 0.3); }
+.bento-panel img { display: block; width: 100%; height: auto; aspect-ratio: 390 / 430; -webkit-mask-image: linear-gradient(180deg, #000 86%, rgb(0 0 0 / 0.25) 100%); mask-image: linear-gradient(180deg, #000 86%, rgb(0 0 0 / 0.25) 100%); transition: transform 0.9s var(--ease); }
+.bento-card:hover .bento-panel img { transform: scale(1.02); }
 
 /* ---------- Insights band ---------- */
 .insights-band { background: var(--c-band); padding-block: 110px 120px; }
@@ -466,6 +475,10 @@ h1, h2, h3, h4, h5 { color: var(--c-dark); font-weight: 400; }
   .bento-lg { grid-column: span 6; }
   .bento-sm { grid-column: span 3; }
   .bento-sm:last-child { grid-column: span 6; }
+  .bento-sm:last-child { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 340px); grid-template-rows: auto 1fr; column-gap: 32px; }
+  .bento-sm:last-child > h3 { grid-column: 1; grid-row: 1; padding-top: 6px; }
+  .bento-sm:last-child > p { grid-column: 1; grid-row: 2; }
+  .bento-sm:last-child .bento-panel { grid-column: 2; grid-row: 1 / span 2; align-self: end; padding-top: 0; }
   .insights-inner { grid-template-columns: 1fr; }
   .benefits-grid { grid-template-columns: 1fr; gap: 40px; max-width: 520px; }
   .orbit { grid-template-columns: 1fr 1fr; }
@@ -511,6 +524,11 @@ h1, h2, h3, h4, h5 { color: var(--c-dark); font-weight: 400; }
   .bento-sm { grid-column: span 6; }
   .bento-card { padding: 22px 20px 0; }
   .bento-lg .screen-panel { height: 240px; }
+  .bento-device { height: 372px; padding-top: 28px; }
+  .bento-device .phone { width: 260px; }
+  .bento-panel { padding-top: 26px; }
+  .bento-sm:last-child { display: flex; }
+  .bento-sm:last-child .bento-panel { padding-top: 26px; }
   .insights-band { padding-block: 72px; }
   .insights-copy { text-align: center; }
   .insights-copy p { margin-inline: auto; margin-bottom: 32px; }

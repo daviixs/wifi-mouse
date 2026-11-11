@@ -1,11 +1,40 @@
 ---
+import { Picture } from 'astro:assets';
 import Heading from './Heading.astro';
-import Screen from './Screen.astro';
-import touchpadActive from '../assets/screens/touchpad-active.webp';
-import keyboard from '../assets/screens/keyboard.webp';
-import shortcuts from '../assets/screens/shortcuts.webp';
-import media from '../assets/screens/media.webp';
-import sensitivity from '../assets/screens/sensitivity.webp';
+import PhoneMockup from './PhoneMockup.astro';
+// Real app screens captured from the Expo web export at 390×844, 3× DPR (1170 px wide).
+import touchpad from '../assets/features/touchpad-full.webp';
+import keyboard from '../assets/features/keyboard-full.webp';
+// Crops of whole sheets/cards from the same captures (390 px wide, 3×), cut at section boundaries.
+import shortcuts from '../assets/features/shortcuts-sheet.webp';
+import media from '../assets/features/media-sheet.webp';
+import sensitivity from '../assets/features/sensitivity-card.webp';
+
+const deviceWidths = [300, 450, 600, 900, 1170];
+const deviceSizes = '(min-width: 1024px) 300px, (min-width: 768px) 300px, 260px';
+const panelWidths = [360, 540, 720, 1080, 1170];
+const panelSizes = '(min-width: 1024px) 360px, (min-width: 768px) 46vw, 92vw';
+
+const panels = [
+  {
+    title: 'Smart Shortcuts',
+    text: 'Cmd/Ctrl + C, V, Z, Tab, Esc and more, matched to the computer you are connected to.',
+    src: shortcuts,
+    alt: 'Shortcuts sheet listing Mac shortcuts: Cmd + Tab, Cmd + Q, Cmd + W, Cmd + C, Cmd + V and Cmd + Z',
+  },
+  {
+    title: 'Media & Volume',
+    text: 'Play, pause, skip tracks and change the computer’s volume without leaving the sofa.',
+    src: media,
+    alt: 'Media sheet with previous, play/pause and next buttons and computer volume down, mute and up',
+  },
+  {
+    title: 'Adjustable Sensitivity',
+    text: 'Dial cursor speed from 0.5× to 6× — your preference is saved on the phone.',
+    src: sensitivity,
+    alt: 'Cursor sensitivity card with a slider set to 3.0× and a Done button',
+  },
+];
 ---
 
 <section class="section features" id="features" aria-labelledby="features-title">
@@ -22,32 +51,40 @@ import sensitivity from '../assets/screens/sensitivity.webp';
       <article class="bento-card bento-lg reveal">
         <h3 class="h4">Precision Wireless Touchpad</h3>
         <p>Slide one finger to move the cursor, tap to click, hold for a right-click and use two fingers to scroll.</p>
-        <Screen src={touchpadActive} alt="ConnectMouse touchpad screen lit up while dragging, with left and right click buttons" focus="50% 100%" class="bento-shot" />
+        <div class="bento-device">
+          <PhoneMockup src={touchpad} alt="ConnectMouse touchpad surface lit up while a finger drags the cursor" widths={deviceWidths} sizes={deviceSizes} />
+        </div>
       </article>
 
       <article class="bento-card bento-lg reveal" style="--d:.1s">
         <h3 class="h4">Type From Your Phone</h3>
         <p>Open the keyboard and everything you type — text, Backspace and Enter — appears on your computer in real time.</p>
-        <Screen src={keyboard} alt="ConnectMouse keyboard mode with the text field typing into the computer" focus="50% 0%" class="bento-shot" />
+        <div class="bento-device">
+          <PhoneMockup src={keyboard} alt="ConnectMouse keyboard mode with “Hello from my phone” typed in the text field above the touchpad" widths={deviceWidths} sizes={deviceSizes} />
+        </div>
       </article>
 
-      <article class="bento-card bento-sm reveal">
-        <h3 class="h5">Smart Shortcuts</h3>
-        <p>Cmd/Ctrl + C, V, Z, Tab, Esc and more, matched to the computer you are connected to.</p>
-        <Screen src={shortcuts} alt="Shortcuts sheet listing Mac shortcuts like Cmd + Tab, Cmd + Q and Cmd + C" focus="50% 30%" class="bento-shot" sizes="(min-width: 1024px) 360px, 92vw" />
-      </article>
-
-      <article class="bento-card bento-sm reveal" style="--d:.1s">
-        <h3 class="h5">Media &amp; Volume</h3>
-        <p>Play, pause, skip tracks and change the computer’s volume without leaving the sofa.</p>
-        <Screen src={media} alt="Media panel with previous, play/pause, next and computer volume controls" focus="50% 72%" class="bento-shot" sizes="(min-width: 1024px) 360px, 92vw" />
-      </article>
-
-      <article class="bento-card bento-sm reveal" style="--d:.2s">
-        <h3 class="h5">Adjustable Sensitivity</h3>
-        <p>Dial cursor speed from 0.5× to 6× — your preference is saved on the phone.</p>
-        <Screen src={sensitivity} alt="Cursor sensitivity slider set to 3.0×" focus="50% 56%" class="bento-shot" sizes="(min-width: 1024px) 360px, 92vw" />
-      </article>
+      {
+        panels.map((panel, i) => (
+          <article class="bento-card bento-sm reveal" style={`--d:${i * 0.1}s`}>
+            <h3 class="h5">{panel.title}</h3>
+            <p>{panel.text}</p>
+            <div class="bento-panel">
+              <Picture
+                src={panel.src}
+                alt={panel.alt}
+                widths={panelWidths}
+                sizes={panelSizes}
+                formats={['avif', 'webp']}
+                fallbackFormat="webp"
+                quality={80}
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
+          </article>
+        ))
+      }
     </div>
   </div>
 </section>
