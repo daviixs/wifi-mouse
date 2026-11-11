@@ -38,6 +38,9 @@ param(
   # Deve ser idêntico ao nome reservado no Partner Center.
   [ValidateLength(1, 256)]
   [string]$DisplayName = "Remote Mouse",
+  # Nome curto do bloco do menu Iniciar (máx. 40 caracteres).
+  [ValidateLength(1, 40)]
+  [string]$ShortName = "ConnectMouse",
   [switch]$SelfSign,
   [string]$CertificatePath,
   [string]$CertificatePassword,
@@ -90,6 +93,7 @@ $Replacements = [ordered]@{
   "__PUBLISHER_DISPLAY_NAME__" = [Security.SecurityElement]::Escape($PublisherDisplayName)
   "__PUBLISHER__" = [Security.SecurityElement]::Escape($Publisher)
   "__DISPLAY_NAME__" = [Security.SecurityElement]::Escape($DisplayName)
+  "__SHORT_NAME__" = [Security.SecurityElement]::Escape($ShortName)
   "__VERSION__" = $Version
   "__ARCH__" = $Arch
 }
