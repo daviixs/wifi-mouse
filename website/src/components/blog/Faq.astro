@@ -1,0 +1,27 @@
+---
+import Icon from '../Icon.astro';
+
+interface Props {
+  items: { q: string; a: string }[];
+}
+const { items } = Astro.props;
+---
+
+<section class="post-faq" aria-labelledby="faq">
+  <h2 id="faq" class="post-faq-title">Frequently Asked Questions</h2>
+  <div class="post-faq-list">
+    {
+      items.map((item, i) => (
+        <details class="post-faq-item" open={i === 0}>
+          <summary>
+            <h3>{item.q}</h3>
+            <span class="post-faq-icon" aria-hidden="true">
+              <Icon name="Plus" size={18} />
+            </span>
+          </summary>
+          <p>{item.a}</p>
+        </details>
+      ))
+    }
+  </div>
+</section>

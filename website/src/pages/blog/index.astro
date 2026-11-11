@@ -1,0 +1,79 @@
+---
+import Base from '../../layouts/Base.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import Heading from '../../components/Heading.astro';
+import CallToAction from '../../components/CallToAction.astro';
+import Breadcrumbs from '../../components/blog/Breadcrumbs.astro';
+import PostCard from '../../components/blog/PostCard.astro';
+import { site } from '../../config/site';
+import { absolute, getPosts, isoDate, postPath, BLOG_PATH } from '../../lib/blog';
+import '../../styles/blog.css';
+
+const posts = await getPosts();
+const [featured, ...rest] = posts;
+const categories = [...new Set(posts.map((p) => p.data.tags.at(-1) ?? p.data.category))];
+
+const title = 'ConnectMouse Blog: Phone as Mouse & Keyboard Guides';
+const description =
+  'Guides for using your phone as a wireless mouse, touchpad and keyboard on Mac and Windows: setup, permissions, troubleshooting and how ConnectMouse works.';
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Blog',
+    name: `${site.name} Blog`,
+    description,
+    url: absolute(BLOG_PATH, Astro.site),
+    inLanguage: 'en',
+    publisher: { '@type': 'Organization', name: site.name, url: absolute('/', Astro.site) },
+    blogPost: posts.map((p) => ({
+      '@type': 'BlogPosting',
+      headline: p.data.title,
+      description: p.data.description,
+      url: absolute(postPath(p), Astro.site),
+      datePublished: isoDate(p.data.publishedAt),
+    })),
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: absolute('/', Astro.site) },
+      { '@type': 'ListItem', position: 2, name: 'Blog', item: absolute(BLOG_PATH, Astro.site) },
+    ],
+  },
+];
+---
+
+<Base title={title} description={description} jsonLd={jsonLd}>
+  <Header />
+  <main id="main" class="blog-page">
+    <div class="blog-bg" aria-hidden="true">
+      <span class="hero-blob hero-blob-green"></span>
+      <span class="hero-blob hero-blob-blue"></span>
+    </div>
+
+    <section class="container blog-hero" aria-labelledby="blog-title">
+      <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Blog' }]} />
+      <Heading as="h1" id="blog-title" class="blog-title" text="Guides & Insights For *Your Phone Mouse*" />
+      <p class="blog-sub reveal">
+        Practical guides for turning your phone into a wireless mouse, touchpad and keyboard for Mac and Windows, plus a
+        transparent look at how ConnectMouse works.
+      </p>
+      <ul class="blog-topics reveal" style="--d:.1s" aria-label="Topics">
+        {categories.map((c) => <li>{c}</li>)}
+      </ul>
+    </section>
+
+    <section class="container blog-list" aria-label="Articles">
+      {featured && <PostCard post={featured} variant="featured" eager />}
+      <div class="blog-rows">
+        {rest.map((post, i) => <PostCard post={post} variant="row" delay={i * 0.08} />)}
+      </div>
+    </section>
+
+    <CallToAction />
+  </main>
+  <Footer />
+</Base>

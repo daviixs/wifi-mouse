@@ -1,0 +1,31 @@
+---
+import Icon from './Icon.astro';
+const items = [
+  { name: 'Rust', icon: 'Cpu' },
+  { name: 'React Native', icon: 'Atom' },
+  { name: 'Expo', icon: 'Layers' },
+  { name: 'TypeScript', icon: 'Code2' },
+  { name: 'SwiftUI', icon: 'Feather' },
+  { name: 'WebSocket', icon: 'Plug' },
+  { name: 'mDNS', icon: 'Radar' },
+  { name: 'Win32', icon: 'AppWindow' },
+];
+---
+
+<section class="marquee-section" aria-labelledby="marquee-title">
+  <div class="container">
+    <p id="marquee-title" class="marquee-title reveal">Built On Open, Proven Technology</p>
+    <div class="marquee" data-marquee>
+      <ul class="marquee-track">
+        {
+          [...items, ...items].map((item, i) => (
+            <li aria-hidden={i >= items.length ? 'true' : undefined}>
+              <span class="marquee-icon"><Icon name={item.icon} size={22} strokeWidth={2} /></span>
+              {item.name}
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,99 @@
+---
+import { nav, site, resolveHref } from '../config/site';
+import Logo from './Logo.astro';
+import Icon from './Icon.astro';
+import Button from './Button.astro';
+
+const path = Astro.url.pathname;
+const onHome = path.replace(/\/+$/, '') === '';
+const href = (h: string) => resolveHref(h, path);
+const isActive = (item: (typeof nav)[number], index: number) =>
+  onHome ? index === 0 : !item.href.startsWith('#') && `${path.replace(/\/+$/, '')}/`.startsWith(`${item.href.replace(/\/+$/, '')}/`);
+---
+
+<header class="site-header" data-header>
+  <div class="container header-inner">
+    <a href={onHome ? '#top' : '/'} class="header-logo" aria-label="ConnectMouse home"><Logo /></a>
+
+    <nav class="nav-desktop" aria-label="Main">
+      <ul class="nav-list">
+        {
+          nav.map((item, index) => (
+            <li class:list={['nav-item', { 'has-children': item.children }]}>
+              <a href={href(item.href)} class:list={['nav-link', { 'is-active': isActive(item, index) }]} aria-current={isActive(item, index) && !onHome ? 'page' : undefined}>
+                {item.label}
+                {item.badge && <span class="nav-badge">{item.badge}</span>}
+                {item.children && <Icon name="ChevronDown" size={16} class="nav-caret" />}
+                {index === nav.length - 1 && <span class="nav-dot" aria-hidden="true" />}
+              </a>
+              {item.children && (
+                <div class="nav-dropdown">
+                  <ul>
+                    {item.children.map((child) => (
+                      <li>
+                        <a href={href(child.href)} class="nav-dropdown-link">
+                          <span class="nav-dropdown-icon">
+                            <Icon name={child.icon} size={20} />
+                          </span>
+                          <span>
+                            <span class="nav-dropdown-title">{child.label}</span>
+                            <span class="nav-dropdown-desc">{child.description}</span>
+                          </span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+
+    <div class="header-actions">
+      <a class="header-pill" href={site.links.github} target="_blank" rel="noopener">
+        <Icon name="Code2" size={16} />
+        <span>GitHub</span>
+        <Icon name="ArrowUpRight" size={14} />
+      </a>
+      <Button href={site.downloads.phone} external class="header-cta">Download</Button>
+      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" data-menu-toggle>
+        <span class="sr-only">Open menu</span>
+        <span class="menu-toggle-bars" aria-hidden="true"><span></span><span></span></span>
+      </button>
+    </div>
+  </div>
+
+  <div class="mobile-menu" id="mobile-menu" data-mobile-menu hidden>
+    <nav aria-label="Mobile" class="container">
+      <ul>
+        {
+          nav.map((item) => (
+            <li>
+              <a href={href(item.href)} data-menu-link>
+                {item.label}
+                {item.badge && <span class="nav-badge">{item.badge}</span>}
+              </a>
+              {item.children && (
+                <ul class="mobile-sub">
+                  {item.children.map((child) => (
+                    <li>
+                      <a href={href(child.href)} data-menu-link>
+                        <Icon name={child.icon} size={18} /> {child.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          ))
+        }
+      </ul>
+      <div class="mobile-menu-actions">
+        <Button href={site.downloads.phone} external>Download</Button>
+        <Button href={site.links.github} external variant="outline">View on GitHub</Button>
+      </div>
+    </nav>
+  </div>
+</header>

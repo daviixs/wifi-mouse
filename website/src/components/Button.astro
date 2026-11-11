@@ -1,0 +1,30 @@
+---
+/** Pill button with the vertical "text flip" hover from the reference design. */
+interface Props {
+  href: string;
+  variant?: 'primary' | 'outline' | 'link';
+  class?: string;
+  external?: boolean;
+  magnetic?: boolean;
+  icon?: 'play' | 'arrow';
+  [key: string]: unknown;
+}
+import Icon from './Icon.astro';
+const { href, variant = 'primary', class: className = '', external = false, magnetic = false, icon, ...rest } = Astro.props;
+const label = await Astro.slots.render('default');
+const ext = external ? { target: '_blank', rel: 'noopener' } : {};
+---
+
+<a
+  href={href}
+  class:list={['btn', `btn-${variant}`, className, { 'is-magnetic': magnetic }]}
+  {...ext}
+  {...rest}
+>
+  {icon === 'play' && <Icon name="Play" size={14} class="btn-lead" strokeWidth={0} />}
+  <span class="btn-flip">
+    <span class="btn-flip-a" set:html={label} />
+    <span class="btn-flip-b" aria-hidden="true" set:html={label} />
+  </span>
+  {icon === 'arrow' && <Icon name="ArrowUpRight" size={16} class="btn-trail" />}
+</a>

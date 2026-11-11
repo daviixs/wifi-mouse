@@ -1,0 +1,88 @@
+---
+import '@fontsource-variable/figtree';
+import '@fontsource/instrument-serif/latin-400.css';
+import '@fontsource/instrument-serif/latin-400-italic.css';
+import '../styles/global.css';
+import { site } from '../config/site';
+
+interface Props {
+  title?: string;
+  description?: string;
+  keywords?: string;
+  /** Open Graph type: the landing page is a website, blog posts are articles. */
+  ogType?: 'website' | 'article';
+  /** Extra article meta for blog posts. */
+  article?: { publishedTime: string; modifiedTime?: string; section?: string; tags?: string[] };
+  /** Structured data for this page; defaults to the SoftwareApplication schema. */
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[];
+}
+const {
+  title = site.title,
+  description = site.description,
+  keywords = site.keywords,
+  ogType = 'website',
+  article,
+  jsonLd: pageJsonLd,
+} = Astro.props;
+const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : undefined;
+const ogImage = Astro.site ? new URL('/og-image.png', Astro.site).href : '/og-image.png';
+
+const appJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: site.name,
+  applicationCategory: 'UtilitiesApplication',
+  operatingSystem: 'Android, iOS, macOS 13+, Windows 10/11',
+  description,
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+  isAccessibleForFree: true,
+  codeRepository: site.repo,
+  ...(canonical ? { url: canonical } : {}),
+};
+const jsonLdBlocks = pageJsonLd ? (Array.isArray(pageJsonLd) ? pageJsonLd : [pageJsonLd]) : [appJsonLd];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <script is:inline>document.documentElement.classList.add('js');</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="keywords" content={keywords} />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="color-scheme" content="light" />
+    {canonical && <link rel="canonical" href={canonical} />}
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    {Astro.site && <link rel="sitemap" href="/sitemap-index.xml" />}
+
+    <meta property="og:type" content={ogType} />
+    <meta property="og:site_name" content={site.name} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="ConnectMouse app on a phone controlling a computer" />
+    {canonical && <meta property="og:url" content={canonical} />}
+    {article && <meta property="article:published_time" content={article.publishedTime} />}
+    {article?.modifiedTime && <meta property="article:modified_time" content={article.modifiedTime} />}
+    {article?.section && <meta property="article:section" content={article.section} />}
+    {article?.tags?.map((tag) => <meta property="article:tag" content={tag} />)}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    {jsonLdBlocks.map((block) => <script type="application/ld+json" set:html={JSON.stringify(block).replace(/</g, '\\u003c')} />)}
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <slot />
+    <script>
+      import '../scripts/main';
+    </script>
+  </body>
+</html>

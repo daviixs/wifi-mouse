@@ -1,0 +1,150 @@
+---
+import type { GetStaticPaths } from 'astro';
+import { render } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import PhoneMockup from '../../components/PhoneMockup.astro';
+import Breadcrumbs from '../../components/blog/Breadcrumbs.astro';
+import PostMeta from '../../components/blog/PostMeta.astro';
+import PostCard from '../../components/blog/PostCard.astro';
+import Toc from '../../components/blog/Toc.astro';
+import Faq from '../../components/blog/Faq.astro';
+import ArticleCta from '../../components/blog/ArticleCta.astro';
+import StickyCta from '../../components/blog/StickyCta.astro';
+import { site } from '../../config/site';
+import { absolute, getPosts, isoDate, postPath, readingMinutes, BLOG_PATH, type Post } from '../../lib/blog';
+import '../../styles/blog.css';
+
+export const getStaticPaths = (async () => {
+  const posts = await getPosts();
+  return posts.map((post) => ({ params: { slug: post.id }, props: { post, related: posts.filter((p) => p.id !== post.id) } }));
+}) satisfies GetStaticPaths;
+
+interface Props {
+  post: Post;
+  related: Post[];
+}
+const { post, related } = Astro.props;
+const { data } = post;
+const { Content, headings } = await render(post);
+
+const url = absolute(postPath(post), Astro.site);
+const published = isoDate(data.publishedAt);
+const modified = isoDate(data.updatedAt ?? data.publishedAt);
+const logo = absolute('/apple-touch-icon.png', Astro.site);
+const org = { '@type': 'Organization', name: site.name, url: absolute('/', Astro.site), logo: { '@type': 'ImageObject', url: logo } };
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: data.title,
+    description: data.description,
+    image: [absolute('/og-image.png', Astro.site)],
+    datePublished: published,
+    dateModified: modified,
+    author: org,
+    publisher: org,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': url },
+    articleSection: data.category,
+    keywords: data.keywords.join(', '),
+    wordCount: (post.body ?? '').split(/\s+/).filter(Boolean).length,
+    timeRequired: `PT${readingMinutes(post.body)}M`,
+    inLanguage: 'en',
+    about: { '@type': 'SoftwareApplication', name: site.name, applicationCategory: 'UtilitiesApplication', operatingSystem: 'Android, iOS, macOS 13+, Windows 10/11' },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: data.faq.map((item) => ({ '@type': 'Question', name: item.q, acceptedAnswer: { '@type': 'Answer', text: item.a } })),
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: absolute('/', Astro.site) },
+      { '@type': 'ListItem', position: 2, name: 'Blog', item: absolute(BLOG_PATH, Astro.site) },
+      { '@type': 'ListItem', position: 3, name: data.title, item: url },
+    ],
+  },
+];
+
+const seoTitle = data.seoTitle ?? data.title;
+const pageTitle = seoTitle.length + ` | ${site.name}`.length <= 65 ? `${seoTitle} | ${site.name}` : seoTitle;
+
+const sticky = {
+  mac: { title: 'Want to try it on your Mac?', text: 'Free menu bar app for macOS 13+. No account needed.', label: 'Download For Mac', href: site.downloads.mac },
+  windows: { title: 'Ready to control your PC from your phone?', text: 'ConnectMouse for Windows 10 and 11 on the Microsoft Store.', label: 'Get The App', href: site.downloads.windows },
+  phone: { title: 'Your phone, your Wi-Fi, your computer.', text: 'No cloud, no account, no subscription.', label: 'Download Free', href: site.downloads.phone },
+}[data.cta];
+---
+
+<Base
+  title={pageTitle}
+  description={data.description}
+  keywords={data.keywords.join(', ')}
+  ogType="article"
+  article={{ publishedTime: published, modifiedTime: modified, section: data.category, tags: data.tags }}
+  jsonLd={jsonLd}
+>
+  <Header />
+  <main id="main" class="post-page">
+    <div class="blog-bg" aria-hidden="true">
+      <span class="hero-blob hero-blob-green"></span>
+      <span class="hero-blob hero-blob-blue"></span>
+    </div>
+
+    <header class="container post-hero">
+      <div class="post-hero-copy">
+        <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Blog', href: BLOG_PATH }, { label: data.title }]} />
+        <p class="post-tags">
+          {data.tags.map((tag, i) => (
+            <>
+              {i > 0 && <span class="guide-dot" aria-hidden="true">•</span>}
+              <span>{tag}</span>
+            </>
+          ))}
+        </p>
+        <h1 class="post-title">{data.title}</h1>
+        <p class="post-lead">{data.description}</p>
+        <PostMeta post={post} showCategory={false} class="post-hero-meta" />
+      </div>
+      <div class="post-hero-visual">
+        <PhoneMockup src={data.cover} alt={data.coverAlt} eager sizes="(min-width: 1024px) 260px, 1px" class="post-phone" />
+      </div>
+    </header>
+
+    <div class="container post-layout">
+      <article class="post-article">
+        <Toc headings={headings} variant="inline" />
+        <div class="prose" data-prose>
+          <Content />
+        </div>
+        <hr class="post-rule" />
+        <Faq items={data.faq} />
+        <ArticleCta platform={data.cta} />
+      </article>
+      <aside class="post-aside">
+        <Toc headings={headings} variant="aside" />
+        <div class="post-aside-card">
+          <p class="post-aside-title">ConnectMouse</p>
+          <p>Use your phone as a wireless mouse, touchpad and keyboard for Mac and Windows.</p>
+          <a href="/" class="post-aside-link">See How It Works</a>
+        </div>
+      </aside>
+    </div>
+
+    <section class="container post-related" aria-labelledby="related-title">
+      <h2 id="related-title" class="heading">Keep <span class="word-italic">Reading</span></h2>
+      <div class="post-related-grid">
+        {related.map((p, i) => <PostCard post={p} variant="card" headingLevel="h3" delay={i * 0.1} />)}
+      </div>
+    </section>
+  </main>
+  <Footer />
+  <StickyCta {...sticky} />
+  <script>
+    import '../../scripts/blog';
+  </script>
+</Base>

@@ -1,0 +1,42 @@
+---
+import { site } from '../config/site';
+import Heading from './Heading.astro';
+import Button from './Button.astro';
+import Icon from './Icon.astro';
+---
+
+<section class="section insights" aria-labelledby="insights-title">
+  <div class="insights-band">
+    <div class="container insights-inner">
+      <div class="insights-copy">
+        <Heading id="insights-title" text={'Smooth Control That\nFeels *Natural*'} />
+        <p class="reveal">
+          Built for responsiveness: touch movement is gathered on the UI thread and sent the moment it
+          happens, as tiny JSON messages over a single WebSocket.
+        </p>
+        <div class="reveal" style="--d:.15s">
+          <Button href={site.downloads.phone} external magnetic>Get The App Now</Button>
+        </div>
+      </div>
+
+      <div class="insights-cards">
+        <article class="insight-card reveal">
+          <div class="insight-head">
+            <span class="insight-icon"><Icon name="Timer" size={20} /></span>
+            Every Frame
+          </div>
+          <p class="insight-value"><span data-count="1">1</span><small> batch per frame</small></p>
+          <p>Finger movement is batched at most once per active frame — no flood of tiny updates.</p>
+        </article>
+        <article class="insight-card insight-card-low reveal" style="--d:.15s">
+          <div class="insight-head">
+            <span class="insight-icon"><Icon name="Feather" size={20} /></span>
+            Lightweight
+          </div>
+          <p class="insight-value"><span data-count="1">1</span><small> KB max per command</small></p>
+          <p>Compact, versioned commands keep the connection light on your network.</p>
+        </article>
+      </div>
+    </div>
+  </div>
+</section>

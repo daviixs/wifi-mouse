@@ -1,0 +1,90 @@
+---
+import { Picture } from 'astro:assets';
+import Heading from './Heading.astro';
+import PhoneMockup from './PhoneMockup.astro';
+// Real app screens captured from the Expo web export at 390×844, 3× DPR (1170 px wide).
+import touchpad from '../assets/features/touchpad-full.webp';
+import keyboard from '../assets/features/keyboard-full.webp';
+// Crops of whole sheets/cards from the same captures (390 px wide, 3×), cut at section boundaries.
+import shortcuts from '../assets/features/shortcuts-sheet.webp';
+import media from '../assets/features/media-sheet.webp';
+import sensitivity from '../assets/features/sensitivity-card.webp';
+
+const deviceWidths = [300, 450, 600, 900, 1170];
+const deviceSizes = '(min-width: 1024px) 300px, (min-width: 768px) 300px, 260px';
+const panelWidths = [360, 540, 720, 1080, 1170];
+const panelSizes = '(min-width: 1024px) 360px, (min-width: 768px) 46vw, 92vw';
+
+const panels = [
+  {
+    title: 'Smart Shortcuts',
+    text: 'Cmd/Ctrl + C, V, Z, Tab, Esc and more, matched to the computer you are connected to.',
+    src: shortcuts,
+    alt: 'Shortcuts sheet listing Mac shortcuts: Cmd + Tab, Cmd + Q, Cmd + W, Cmd + C, Cmd + V and Cmd + Z',
+  },
+  {
+    title: 'Media & Volume',
+    text: 'Play, pause, skip tracks and change the computer’s volume without leaving the sofa.',
+    src: media,
+    alt: 'Media sheet with previous, play/pause and next buttons and computer volume down, mute and up',
+  },
+  {
+    title: 'Adjustable Sensitivity',
+    text: 'Dial cursor speed from 0.5× to 6× — your preference is saved on the phone.',
+    src: sensitivity,
+    alt: 'Cursor sensitivity card with a slider set to 3.0× and a Done button',
+  },
+];
+---
+
+<section class="section features" id="features" aria-labelledby="features-title">
+  <div class="container">
+    <div class="center-head">
+      <Heading id="features-title" text="Everything You Need, *In Your Hand*" />
+      <p class="reveal">
+        A responsive touchpad, a real-time keyboard and one-tap controls — designed to make your phone
+        the most convenient input device in the room.
+      </p>
+    </div>
+
+    <div class="bento">
+      <article class="bento-card bento-lg reveal">
+        <h3 class="h4">Precision Wireless Touchpad</h3>
+        <p>Slide one finger to move the cursor, tap to click, hold for a right-click and use two fingers to scroll.</p>
+        <div class="bento-device">
+          <PhoneMockup src={touchpad} alt="ConnectMouse touchpad surface lit up while a finger drags the cursor" widths={deviceWidths} sizes={deviceSizes} />
+        </div>
+      </article>
+
+      <article class="bento-card bento-lg reveal" style="--d:.1s">
+        <h3 class="h4">Type From Your Phone</h3>
+        <p>Open the keyboard and everything you type — text, Backspace and Enter — appears on your computer in real time.</p>
+        <div class="bento-device">
+          <PhoneMockup src={keyboard} alt="ConnectMouse keyboard mode with “Hello from my phone” typed in the text field above the touchpad" widths={deviceWidths} sizes={deviceSizes} />
+        </div>
+      </article>
+
+      {
+        panels.map((panel, i) => (
+          <article class="bento-card bento-sm reveal" style={`--d:${i * 0.1}s`}>
+            <h3 class="h5">{panel.title}</h3>
+            <p>{panel.text}</p>
+            <div class="bento-panel">
+              <Picture
+                src={panel.src}
+                alt={panel.alt}
+                widths={panelWidths}
+                sizes={panelSizes}
+                formats={['avif', 'webp']}
+                fallbackFormat="webp"
+                quality={80}
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
+          </article>
+        ))
+      }
+    </div>
+  </div>
+</section>

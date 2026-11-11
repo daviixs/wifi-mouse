@@ -1,0 +1,51 @@
+---
+import { site } from '../config/site';
+import Heading from './Heading.astro';
+import Icon from './Icon.astro';
+const rows = [
+  [
+    { icon: 'Presentation', label: 'Presentations', tone: 'violet' },
+    { icon: 'Film', label: 'Movies', tone: 'violet' },
+    { icon: 'Music', label: 'Music', tone: 'indigo' },
+    { icon: 'Globe', label: 'Web browsing', tone: 'blue' },
+    { icon: 'FileText', label: 'Documents', tone: 'sky' },
+  ],
+  [
+    { icon: 'Tv', label: 'Home theater PC', tone: 'violet' },
+    { icon: 'Sofa', label: 'Couch control', tone: 'green' },
+    { icon: 'Podcast', label: 'Podcasts', tone: 'green' },
+    { icon: 'Projector', label: 'Projectors', tone: 'dark' },
+    { icon: 'Clapperboard', label: 'Streaming', tone: 'dark' },
+    { icon: 'MessageCircle', label: 'Chat', tone: 'violet' },
+  ],
+];
+---
+
+<section class="section usecases" aria-labelledby="usecases-title">
+  <div class="container">
+    <div class="center-head">
+      <Heading id="usecases-title" text={'Works With Every App\n*On Your Computer*'} />
+    </div>
+    <div class="usecase-grid" data-parallax-grid>
+      {
+        rows.map((row, r) => (
+          <ul class="usecase-row">
+            {row.map((item, i) => (
+              <li class:list={['usecase', `tone-${item.tone}`, 'reveal']} style={`--d:${(r * 5 + i) * 0.05}s`} title={item.label}>
+                <Icon name={item.icon} size={24} />
+                <span class="sr-only">{item.label}</span>
+              </li>
+            ))}
+          </ul>
+        ))
+      }
+    </div>
+    <p class="usecase-note reveal">ConnectMouse sends real system mouse and keyboard input, so it works with any app you open.</p>
+    <div class="center reveal">
+      <a class="link-underline" href={site.links.github} target="_blank" rel="noopener">
+        Explore The Project
+        <Icon name="ArrowUpRight" size={14} />
+      </a>
+    </div>
+  </div>
+</section>

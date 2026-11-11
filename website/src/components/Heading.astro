@@ -1,0 +1,47 @@
+---
+/**
+ * Section heading. Text wrapped in *asterisks* is set in the italic serif
+ * accent face. With `animated`, words rise in one by one when scrolled into view.
+ */
+interface Props {
+  text: string;
+  as?: 'h1' | 'h2' | 'h3';
+  class?: string;
+  animated?: boolean;
+  id?: string;
+}
+const { text, as: Tag = 'h2', class: className = '', animated = true, id } = Astro.props;
+
+type Token = { word: string; italic: boolean; br: boolean };
+const tokens: Token[] = [];
+text.split(/(\*[^*]+\*)/).forEach((part) => {
+  const italic = part.startsWith('*') && part.endsWith('*');
+  const clean = italic ? part.slice(1, -1) : part;
+  clean.split(/(\n)/).forEach((segment) => {
+    if (segment === '\n') {
+      tokens.push({ word: '', italic, br: true });
+      return;
+    }
+    segment
+      .split(/\s+/)
+      .filter(Boolean)
+      .forEach((word) => tokens.push({ word, italic, br: false }));
+  });
+});
+---
+
+<Tag id={id} class:list={['heading', className, { 'animated-text': animated }]}>
+  {
+    tokens.map((t, i) =>
+      t.br ? (
+        <br class="heading-br" />
+      ) : (
+        <>
+          <span class:list={['word', { 'word-italic': t.italic }]} style={`--i:${i}`}>
+            {t.word}
+          </span>{' '}
+        </>
+      ),
+    )
+  }
+</Tag>

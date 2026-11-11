@@ -1,0 +1,29 @@
+---
+/** "Category · date · N min read" line, as on editorial blog listings. */
+import { formatDate, isoDate, readingMinutes, type Post } from '../../lib/blog';
+
+interface Props {
+  post: Post;
+  showCategory?: boolean;
+  class?: string;
+}
+const { post, showCategory = true, class: className = '' } = Astro.props;
+const { category, publishedAt, updatedAt } = post.data;
+---
+
+<p class:list={['post-meta', className]}>
+  {showCategory && <span class="post-chip">{category}</span>}
+  <time datetime={isoDate(publishedAt)}>{formatDate(publishedAt)}</time>
+  <span class="post-meta-dot" aria-hidden="true">·</span>
+  <span>{readingMinutes(post.body)} min read</span>
+  {
+    updatedAt && (
+      <>
+        <span class="post-meta-dot" aria-hidden="true">·</span>
+        <span>
+          Updated <time datetime={isoDate(updatedAt)}>{formatDate(updatedAt)}</time>
+        </span>
+      </>
+    )
+  }
+</p>
