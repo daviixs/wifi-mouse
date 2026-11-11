@@ -97,4 +97,4 @@ O shell nativo SwiftUI e os scripts de `.app`/DMG ficam em [`macos/`](macos/READ
 
 ## Aplicativo Windows (área de notificação)
 
-App nativo Win32 em Rust, sem webview, em [`windows/`](windows/README.md): iniciar/parar, status, IPs, cópia do endereço, idioma e orientação sobre o Firewall do Windows. Inclui o manifesto e o script MSIX para a Microsoft Store.
+App nativo Win32 em Rust, sem webview, em [`windows/`](windows/README.md): iniciar/parar, status, IPs, cópia do endereço, idioma, **Iniciar com o Windows** e orientação sobre o Firewall do Windows. Inclui o instalador com assistente (Inno Setup, `windows/installer/`) e o manifesto e o script MSIX para a Microsoft Store.
