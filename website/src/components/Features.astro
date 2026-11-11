@@ -1,0 +1,53 @@
+---
+import Heading from './Heading.astro';
+import Screen from './Screen.astro';
+import touchpadActive from '../assets/screens/touchpad-active.webp';
+import keyboard from '../assets/screens/keyboard.webp';
+import shortcuts from '../assets/screens/shortcuts.webp';
+import media from '../assets/screens/media.webp';
+import sensitivity from '../assets/screens/sensitivity.webp';
+---
+
+<section class="section features" id="features" aria-labelledby="features-title">
+  <div class="container">
+    <div class="center-head">
+      <Heading id="features-title" text="Everything You Need, *In Your Hand*" />
+      <p class="reveal">
+        A responsive touchpad, a real-time keyboard and one-tap controls — designed to make your phone
+        the most convenient input device in the room.
+      </p>
+    </div>
+
+    <div class="bento">
+      <article class="bento-card bento-lg reveal">
+        <h3 class="h4">Precision Wireless Touchpad</h3>
+        <p>Slide one finger to move the cursor, tap to click, hold for a right-click and use two fingers to scroll.</p>
+        <Screen src={touchpadActive} alt="ConnectMouse touchpad screen lit up while dragging, with left and right click buttons" focus="50% 100%" class="bento-shot" />
+      </article>
+
+      <article class="bento-card bento-lg reveal" style="--d:.1s">
+        <h3 class="h4">Type From Your Phone</h3>
+        <p>Open the keyboard and everything you type — text, Backspace and Enter — appears on your computer in real time.</p>
+        <Screen src={keyboard} alt="ConnectMouse keyboard mode with the text field typing into the computer" focus="50% 0%" class="bento-shot" />
+      </article>
+
+      <article class="bento-card bento-sm reveal">
+        <h3 class="h5">Smart Shortcuts</h3>
+        <p>Cmd/Ctrl + C, V, Z, Tab, Esc and more, matched to the computer you are connected to.</p>
+        <Screen src={shortcuts} alt="Shortcuts sheet listing Mac shortcuts like Cmd + Tab, Cmd + Q and Cmd + C" focus="50% 30%" class="bento-shot" sizes="(min-width: 1024px) 360px, 92vw" />
+      </article>
+
+      <article class="bento-card bento-sm reveal" style="--d:.1s">
+        <h3 class="h5">Media &amp; Volume</h3>
+        <p>Play, pause, skip tracks and change the computer’s volume without leaving the sofa.</p>
+        <Screen src={media} alt="Media panel with previous, play/pause, next and computer volume controls" focus="50% 72%" class="bento-shot" sizes="(min-width: 1024px) 360px, 92vw" />
+      </article>
+
+      <article class="bento-card bento-sm reveal" style="--d:.2s">
+        <h3 class="h5">Adjustable Sensitivity</h3>
+        <p>Dial cursor speed from 0.5× to 6× — your preference is saved on the phone.</p>
+        <Screen src={sensitivity} alt="Cursor sensitivity slider set to 3.0×" focus="50% 56%" class="bento-shot" sizes="(min-width: 1024px) 360px, 92vw" />
+      </article>
+    </div>
+  </div>
+</section>

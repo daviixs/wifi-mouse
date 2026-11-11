@@ -1,0 +1,100 @@
+---
+import { site } from '../config/site';
+import Heading from './Heading.astro';
+import Icon from './Icon.astro';
+import Button from './Button.astro';
+
+type Feature = { label: string; included: boolean };
+const phone: Feature[] = [
+  { label: 'Wireless touchpad', included: true },
+  { label: 'Real-time keyboard', included: true },
+  { label: 'Shortcuts & media keys', included: true },
+  { label: 'Computer auto-discovery', included: true },
+  { label: 'Account or sign-up', included: false },
+];
+const mac: Feature[] = [
+  { label: 'Lives in the menu bar', included: true },
+  { label: 'Start / stop server', included: true },
+  { label: 'Copy address in one click', included: true },
+  { label: 'Accessibility permission guide', included: true },
+  { label: 'English, Português, Español', included: true },
+];
+const windows: Feature[] = [
+  { label: 'Lives in the notification area', included: true },
+  { label: 'Start / stop server', included: true },
+  { label: 'Copy address in one click', included: true },
+  { label: 'Windows Firewall guidance', included: true },
+  { label: 'English, Português, Español', included: true },
+];
+const source: Feature[] = [
+  { label: 'Full source on GitHub', included: true },
+  { label: 'Versioned JSON protocol', included: true },
+  { label: 'Rust desktop agent', included: true },
+  { label: 'Build it yourself', included: true },
+  { label: 'Report issues & ideas', included: true },
+];
+---
+
+<section class="section pricing" id="pricing" aria-labelledby="pricing-title">
+  <div class="pricing-glow" aria-hidden="true"></div>
+  <div class="container">
+    <div class="pricing-head">
+      <div>
+        <Heading id="pricing-title" text="Simple, Transparent *Pricing*" />
+        <p class="reveal">No subscriptions, no accounts, no surprises — every piece of ConnectMouse is free to download and use.</p>
+      </div>
+      <div class="toggle reveal" role="tablist" aria-label="Choose your computer">
+        <button type="button" role="tab" aria-selected="true" aria-controls="desktop-plan" data-platform="mac">macOS</button>
+        <button type="button" role="tab" aria-selected="false" aria-controls="desktop-plan" data-platform="windows">Windows</button>
+      </div>
+    </div>
+
+    <div class="plans">
+      <article class="plan reveal">
+        <span class="plan-icon"><Icon name="Smartphone" size={20} /></span>
+        <h3 class="plan-name">Phone App</h3>
+        <p class="plan-desc">The remote in your pocket — Android &amp; iOS</p>
+        <p class="plan-price">$0</p>
+        <p class="plan-note">Free forever, no in-app purchases</p>
+        <hr />
+        <p class="plan-included">What’s Included:</p>
+        <ul class="plan-list">
+          {phone.map((f) => <li class:list={{ 'is-off': !f.included }}><span class="plan-check"><Icon name={f.included ? 'Check' : 'X'} size={12} strokeWidth={2.4} /></span>{f.included ? f.label : `No ${f.label.toLowerCase()} required`}</li>)}
+        </ul>
+        <Button href={site.downloads.phone} external variant="outline" class="plan-btn">Get The App</Button>
+      </article>
+
+      <article class="plan plan-featured reveal" style="--d:.1s" id="desktop-plan" data-plan>
+        <span class="plan-icon"><Icon name="Laptop" size={20} class="only-mac" /><Icon name="WindowsGlyph" size={18} class="only-windows" /></span>
+        <h3 class="plan-name"><span class="only-mac">macOS App</span><span class="only-windows">Windows App</span></h3>
+        <p class="plan-desc"><span class="only-mac">Menu bar app for macOS 13 or later</span><span class="only-windows">Native tray app for Windows 10 &amp; 11</span></p>
+        <p class="plan-price">$0</p>
+        <p class="plan-note">Required on the computer you want to control</p>
+        <hr />
+        <p class="plan-included">What’s Included:</p>
+        <ul class="plan-list only-mac">
+          {mac.map((f) => <li><span class="plan-check"><Icon name="Check" size={12} strokeWidth={2.4} /></span>{f.label}</li>)}
+        </ul>
+        <ul class="plan-list only-windows">
+          {windows.map((f) => <li><span class="plan-check"><Icon name="Check" size={12} strokeWidth={2.4} /></span>{f.label}</li>)}
+        </ul>
+        <Button href={site.downloads.mac} external class="plan-btn only-mac">Download For Mac</Button>
+        <Button href={site.downloads.windows} external class="plan-btn only-windows">Download For Windows</Button>
+      </article>
+
+      <article class="plan reveal" style="--d:.2s">
+        <span class="plan-icon"><Icon name="Code2" size={20} /></span>
+        <h3 class="plan-name">Open Source</h3>
+        <p class="plan-desc">For tinkerers and curious developers</p>
+        <p class="plan-price">$0</p>
+        <p class="plan-note">Public repository on GitHub</p>
+        <hr />
+        <p class="plan-included">What’s Included:</p>
+        <ul class="plan-list">
+          {source.map((f) => <li><span class="plan-check"><Icon name="Check" size={12} strokeWidth={2.4} /></span>{f.label}</li>)}
+        </ul>
+        <Button href={site.links.github} external variant="outline" class="plan-btn">View On GitHub</Button>
+      </article>
+    </div>
+  </div>
+</section>

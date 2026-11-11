@@ -1,0 +1,85 @@
+---
+import { site } from '../config/site';
+import Heading from './Heading.astro';
+import Button from './Button.astro';
+import Icon from './Icon.astro';
+import PhoneMockup from './PhoneMockup.astro';
+import connected from '../assets/screens/connected.webp';
+---
+
+<section class="hero" id="top" aria-labelledby="hero-title">
+  <div class="hero-bg" aria-hidden="true">
+    <span class="hero-blob hero-blob-green"></span>
+    <span class="hero-blob hero-blob-blue"></span>
+    <svg class="hero-swoosh hero-swoosh-left" viewBox="0 0 520 760" fill="none">
+      <path d="M-120 640C40 520 300 420 330 250 360 90 210 40 120 120 30 200 70 390 210 520 330 630 470 700 560 720" stroke="currentColor" stroke-width="56" stroke-linecap="round" />
+    </svg>
+    <svg class="hero-swoosh hero-swoosh-right" viewBox="0 0 420 760" fill="none">
+      <path d="M40 780C60 560 90 300 140 140 170 50 230 20 270 80 330 170 330 420 380 760" stroke="currentColor" stroke-width="56" stroke-linecap="round" />
+    </svg>
+  </div>
+
+  <div class="container hero-inner">
+    <a class="hero-pill reveal" href={site.links.github} target="_blank" rel="noopener">
+      <span class="hero-pill-icons" aria-hidden="true">
+        <span><Icon name="Smartphone" size={14} /></span>
+        <span><Icon name="Laptop" size={14} /></span>
+        <span><Icon name="WindowsGlyph" size={12} /></span>
+      </span>
+      <Icon name="Star" size={14} class="hero-pill-star" />
+      <span>Free &amp; open source on GitHub</span>
+    </a>
+
+    <Heading
+      as="h1"
+      id="hero-title"
+      class="hero-title"
+      text={'Turn Your Phone Into A\nWireless *Mouse & Keyboard*'}
+    />
+
+    <p class="hero-sub reveal" style="--d:.25s">
+      ConnectMouse turns your smartphone into a wireless touchpad and keyboard for your Mac or Windows PC.
+      Connect over your Wi-Fi in seconds and control your computer from anywhere in the room.
+    </p>
+
+    <div class="hero-ctas reveal" style="--d:.35s">
+      <Button href={site.downloads.phone} external magnetic>Download Free</Button>
+      <Button href="#how-it-works" variant="outline" icon="play">How It Works</Button>
+    </div>
+
+    <div class="hero-stage">
+      <article class="hero-card hero-card-left reveal" style="--d:.5s">
+        <span class="hero-card-icon"><Icon name="ShieldCheck" size={30} strokeWidth={1.6} /></span>
+        <h2 class="hero-card-title">Works On</h2>
+        <p>One phone app for both desktops: a macOS menu bar app and a Windows tray app.</p>
+        <ul class="hero-card-chips" aria-label="Supported platforms">
+          <li title="Phone app (Android & iOS)"><Icon name="Smartphone" size={18} /><span class="sr-only">Phone app</span></li>
+          <li title="macOS 13 or later"><Icon name="Laptop" size={18} /><span class="sr-only">macOS</span></li>
+          <li title="Windows 10 and 11"><Icon name="WindowsGlyph" size={16} /><span class="sr-only">Windows</span></li>
+        </ul>
+      </article>
+
+      <PhoneMockup
+        src={connected}
+        alt="ConnectMouse app showing a connected computer with Control, Keyboard, Media and More shortcuts"
+        eager
+        fade
+        class="hero-phone reveal"
+        sizes="(min-width: 768px) 330px, 72vw"
+      />
+
+      <article class="hero-card hero-card-right reveal" style="--d:.6s">
+        <ul class="hero-card-squares" aria-hidden="true">
+          <li><Icon name="MousePointer2" size={12} strokeWidth={2.4} /></li>
+          <li><Icon name="Keyboard" size={12} strokeWidth={2.4} /></li>
+          <li><Icon name="Command" size={12} strokeWidth={2.4} /></li>
+          <li><Icon name="Music2" size={12} strokeWidth={2.4} /></li>
+          <li><Icon name="Wifi" size={12} strokeWidth={2.4} /></li>
+        </ul>
+        <h2 class="hero-card-title">Your desk, from the couch.</h2>
+        <p>Move, click, scroll and type on your computer without getting up.</p>
+        <span class="hero-card-meta">Touchpad · Keyboard · Media</span>
+      </article>
+    </div>
+  </div>
+</section>

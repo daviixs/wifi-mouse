@@ -1,0 +1,56 @@
+---
+import { site } from '../config/site';
+import Heading from './Heading.astro';
+import Icon from './Icon.astro';
+---
+
+<section class="section stats" aria-labelledby="stats-title">
+  <div class="container">
+    <div class="split-head">
+      <Heading id="stats-title" text={"A Better Way To Control\nYour Computer *With ConnectMouse*"} />
+      <p class="split-head-text reveal">
+        ConnectMouse gives you the freedom to control your computer from wherever you sit — no dongles,
+        no accounts, no cloud.
+      </p>
+    </div>
+
+    <div class="stats-grid">
+      <article class="stat-card reveal">
+        <span class="stat-corner" aria-hidden="true"></span>
+        <p class="stat-value"><span data-count="100">100</span>%</p>
+        <p class="stat-label">Local Connection</p>
+        <p class="stat-text">Commands travel straight from your phone to your computer over your own Wi-Fi.</p>
+        <ul class="stat-avatars" aria-hidden="true">
+          <li><Icon name="Smartphone" size={18} /></li>
+          <li><Icon name="Wifi" size={18} /></li>
+          <li><Icon name="Monitor" size={18} /></li>
+        </ul>
+      </article>
+
+      <article class="stat-card reveal" style="--d:.1s">
+        <span class="stat-corner" aria-hidden="true"></span>
+        <p class="stat-value"><span data-count="2">2</span> Desktops</p>
+        <p class="stat-label">macOS &amp; Windows Apps</p>
+        <svg class="stat-swoosh" viewBox="0 0 200 160" aria-hidden="true"><path d="M10 150C40 80 70 20 110 30s30 60 40 90 20 40 40 30" fill="none" stroke="currentColor" stroke-width="22" stroke-linecap="round" /></svg>
+        <div class="store-badges">
+          <a class="store-badge" href={site.downloads.mac} target="_blank" rel="noopener">
+            <Icon name="Laptop" size={20} />
+            <span><small>Download for</small>macOS</span>
+          </a>
+          <a class="store-badge" href={site.downloads.windows} target="_blank" rel="noopener">
+            <Icon name="WindowsGlyph" size={18} />
+            <span><small>Download for</small>Windows</span>
+          </a>
+        </div>
+      </article>
+
+      <article class="stat-card stat-card-map reveal" style="--d:.2s">
+        <span class="stat-corner" aria-hidden="true"></span>
+        <p class="stat-value"><span data-count="3">3</span> Languages</p>
+        <p class="stat-label">English, Português, Español</p>
+        <span class="stat-dots" aria-hidden="true"></span>
+        <p class="stat-text stat-text-bottom">Desktop apps follow your system language automatically.</p>
+      </article>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,43 @@
+---
+import Heading from './Heading.astro';
+import Icon from './Icon.astro';
+const items = [
+  {
+    icon: 'MousePointer2',
+    title: 'Wireless Mouse',
+    text: 'Your phone becomes a full touchpad with left click, right click and two-finger scrolling.',
+  },
+  {
+    icon: 'Keyboard',
+    title: 'Phone As Keyboard',
+    text: 'Type messages, searches and passwords on your computer with the keyboard you already know.',
+  },
+  {
+    icon: 'Tv',
+    title: 'Remote Control Freedom',
+    text: 'Run presentations, movies and music from across the room — perfect for the couch or the meeting room.',
+  },
+];
+---
+
+<section class="section benefits" aria-labelledby="benefits-title">
+  <div class="container">
+    <div class="center-head">
+      <Heading id="benefits-title" text="Take Full Control Of *Your Computer*" />
+      <p class="reveal">Point, click, type and play from anywhere in the room. ConnectMouse keeps it simple and practical.</p>
+    </div>
+    <div class="benefits-grid">
+      {
+        items.map((item, i) => (
+          <article class="benefit reveal" style={`--d:${i * 0.1}s`}>
+            <span class="benefit-icon">
+              <Icon name={item.icon} size={22} />
+            </span>
+            <h3 class="h5">{item.title}</h3>
+            <p>{item.text}</p>
+          </article>
+        ))
+      }
+    </div>
+  </div>
+</section>

@@ -1,0 +1,42 @@
+---
+/**
+ * Inline Lucide icon (ISC licensed, via `lucide-static`) plus a few simple
+ * self-drawn platform glyphs. Rendered at build time — no client JS.
+ */
+import * as lucide from 'lucide-static';
+
+interface Props {
+  name: string;
+  size?: number;
+  strokeWidth?: number;
+  class?: string;
+  label?: string;
+}
+
+const { name, size = 24, strokeWidth = 1.75, class: className = '', label } = Astro.props;
+
+const custom: Record<string, string> = {
+  // Four-pane window glyph (generic, self-drawn).
+  WindowsGlyph:
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.2 10.5 4v7.3H3zM11.6 3.8 21 2.5v8.8h-9.4zM3 12.7h7.5V20L3 18.8zM11.6 12.7H21v8.8l-9.4-1.3z"/></svg>',
+  // Sparkle used as a decorative divider.
+  Sparkle:
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c.6 6.4 5.6 11.4 12 12-6.4.6-11.4 5.6-12 12-.6-6.4-5.6-11.4-12-12C6.4 11.4 11.4 6.4 12 0Z"/></svg>',
+};
+
+let svg = custom[name] ?? (lucide as Record<string, string>)[name];
+if (!svg) throw new Error(`Unknown icon: ${name}`);
+
+const a11y = label ? `role="img" aria-label="${label}"` : 'aria-hidden="true" focusable="false"';
+svg = svg
+  .replace(/\s+/g, ' ')
+  .replace(/<svg[^>]*?(viewBox="[^"]+")[^>]*>/, (_match: string, viewBox: string) => {
+    const isCustom = name in custom;
+    const stroke = isCustom
+      ? ''
+      : ` fill="none" stroke="currentColor" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round"`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" ${viewBox} width="${size}" height="${size}"${stroke} class="icon ${className}" ${a11y}>`;
+  });
+---
+
+<Fragment set:html={svg} />

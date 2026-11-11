@@ -1,0 +1,68 @@
+---
+import { site } from '../config/site';
+import { Picture } from 'astro:assets';
+import Heading from './Heading.astro';
+import Icon from './Icon.astro';
+import s1 from '../assets/screens/onboarding-5.webp';
+import s2 from '../assets/screens/help-sheet.webp';
+import s3 from '../assets/screens/home-filled.webp';
+import s4 from '../assets/screens/onboarding-2.webp';
+import s5 from '../assets/screens/onboarding-3.webp';
+import s6 from '../assets/screens/onboarding-4.webp';
+
+const steps = [
+  { icon: 'Wifi', text: 'Connect your phone and your computer to the same Wi-Fi network — that’s the only requirement.', title: 'Join the same Wi-Fi', sub: 'Phone + computer', img: s1, alt: 'Onboarding step: prepare the connection on the same Wi-Fi' },
+  { icon: 'Power', text: 'Open ConnectMouse on your Mac or Windows PC and click Start server. It waits quietly next to your clock.', title: 'Start the desktop app', sub: 'macOS · Windows', img: s2, alt: 'Setup checklist: same Wi-Fi, desktop agent open, IP address entered' },
+  { icon: 'Radar', text: 'Pick your computer from the list the app discovers, or type the address shown on the desktop app.', title: 'Connect in one tap', sub: 'Discovery or IP', img: s3, alt: 'Connection screen with a computer IP address ready to connect' },
+  { icon: 'MousePointer2', text: 'Drag one finger to move the cursor and use two fingers to scroll — smooth and natural.', title: 'Move and scroll', sub: 'One & two fingers', img: s4, alt: 'Onboarding step: move and scroll naturally' },
+  { icon: 'MousePointerClick', text: 'Tap to left-click and press and hold for a right-click. No extra buttons needed.', title: 'Click effortlessly', sub: 'Tap · hold', img: s5, alt: 'Onboarding step: effortless clicks' },
+  { icon: 'Keyboard', text: 'Open the keyboard to type on your computer and fine-tune cursor sensitivity to your liking.', title: 'Type and adjust', sub: 'Keyboard · sensitivity', img: s6, alt: 'Onboarding step: type and adjust to your style' },
+];
+---
+
+<section class="section steps" id="how-it-works" aria-labelledby="steps-title">
+  <div class="container">
+    <div class="split-head split-head-wide">
+      <Heading id="steps-title" text={'From Setup To Control,\n*Step By Step*'} />
+      <div class="reveal">
+        <p class="split-head-text">
+          Getting started takes just a few taps. Here is exactly what you will see in the app.
+        </p>
+        <a class="link-underline" href={site.links.readme} target="_blank" rel="noopener">
+          Read The Setup Guide <Icon name="ArrowUpRight" size={14} />
+        </a>
+      </div>
+    </div>
+
+    <div class="carousel" data-carousel>
+      <ol class="carousel-track" data-carousel-track tabindex="0" aria-label="Setup steps">
+        {
+          steps.map((step, i) => (
+            <li class="step-card" data-carousel-slide>
+              <div class="step-top">
+                <span class="step-num">Step {String(i + 1).padStart(2, '0')}</span>
+                <span class="step-sep" aria-hidden="true" />
+                <span class="step-icon"><Icon name={step.icon} size={18} /></span>
+              </div>
+              <p class="step-text">{step.text}</p>
+              <div class="step-bottom">
+                <div class="step-thumb">
+                  <Picture src={step.img} alt={step.alt} widths={[120, 180]} sizes="60px" formats={['avif', 'webp']} fallbackFormat="webp" quality={70} loading="lazy" decoding="async" />
+                </div>
+                <div class="step-meta">
+                  <h3>{step.title}</h3>
+                  <p>{step.sub}</p>
+                </div>
+                <span class="step-spark" aria-hidden="true"><Icon name="Sparkle" size={22} /></span>
+              </div>
+            </li>
+          ))
+        }
+      </ol>
+      <div class="carousel-nav">
+        <button type="button" class="carousel-btn" data-carousel-prev aria-label="Previous step"><Icon name="ArrowLeft" size={18} /></button>
+        <button type="button" class="carousel-btn" data-carousel-next aria-label="Next step"><Icon name="ArrowRight" size={18} /></button>
+      </div>
+    </div>
+  </div>
+</section>

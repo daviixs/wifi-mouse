@@ -1,0 +1,24 @@
+{
+  "name": "connectmouse-website",
+  "type": "module",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ConnectMouse marketing landing page (static Astro site).",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro check && astro build",
+    "preview": "astro preview",
+    "check": "astro check"
+  },
+  "dependencies": {
+    "@fontsource-variable/figtree": "^5.3.0",
+    "@fontsource/instrument-serif": "^5.3.0",
+    "astro": "^7.4.11",
+    "lucide-static": "^1.72.0",
+    "sharp": "^0.35.5"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.12",
+    "typescript": "^6.0.3"
+  }
+}

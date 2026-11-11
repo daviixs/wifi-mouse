@@ -1,0 +1,38 @@
+---
+import { site } from '../config/site';
+import Heading from './Heading.astro';
+import Button from './Button.astro';
+import Icon from './Icon.astro';
+import PhoneMockup from './PhoneMockup.astro';
+import touchpadActive from '../assets/screens/touchpad-active.webp';
+---
+
+<section class="section cta" aria-labelledby="cta-title">
+  <div class="container">
+    <div class="cta-box">
+      <div class="cta-copy">
+        <svg class="cta-swoosh" viewBox="0 0 400 420" aria-hidden="true"><path d="M30 420C80 260 140 90 210 60s40 120 20 220-20 140 140 140" fill="none" stroke="currentColor" stroke-width="40" stroke-linecap="round" /></svg>
+        <Heading id="cta-title" text="Point, Click And Type—All From One *Easy-To-Use App*" />
+        <p class="reveal">
+          Download ConnectMouse on your phone, open the desktop app on your Mac or PC and take control of
+          your computer from anywhere in the room.
+        </p>
+        <div class="reveal" style="--d:.1s">
+          <Button href={site.downloads.phone} external magnetic>Download Free</Button>
+        </div>
+        <div class="cta-proof reveal" style="--d:.2s">
+          <span class="cta-proof-value">$0</span>
+          <ul class="stat-avatars" aria-hidden="true">
+            <li><Icon name="Smartphone" size={18} /></li>
+            <li><Icon name="Laptop" size={18} /></li>
+            <li><Icon name="WindowsGlyph" size={16} /></li>
+          </ul>
+          <span class="cta-proof-text">No account, no ads,<br />no subscription</span>
+        </div>
+      </div>
+      <div class="cta-visual">
+        <PhoneMockup src={touchpadActive} alt="ConnectMouse touchpad in use" fade class="cta-phone" sizes="(min-width: 768px) 300px, 70vw" />
+      </div>
+    </div>
+  </div>
+</section>

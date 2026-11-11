@@ -1,0 +1,60 @@
+---
+import Heading from './Heading.astro';
+import PhoneMockup from './PhoneMockup.astro';
+import touchpad from '../assets/screens/touchpad.webp';
+
+const left = [
+  { title: 'Tap To Click', text: 'A quick tap is a left click, just like a laptop trackpad.' },
+  { title: 'Hold For Right-Click', text: 'Long-press anywhere on the pad to open context menus.' },
+  { title: 'Two-Finger Scroll', text: 'Scroll pages vertically and horizontally with two fingers.' },
+];
+const right = [
+  { title: 'Auto Discovery', text: 'The app finds computers on your network via mDNS — or type the IP.' },
+  { title: 'Auto Reconnect', text: 'If Wi-Fi drops, the app keeps trying to reconnect for you.' },
+  { title: 'Phone Volume Buttons', text: 'On Android, the volume keys change your computer’s volume.' },
+];
+---
+
+<section class="section tools" id="tools" aria-labelledby="tools-title">
+  <div class="container">
+    <div class="center-head">
+      <Heading id="tools-title" text="Tools For *Effortless Control*" />
+      <p class="reveal">Thoughtful details that make your phone feel like it was always meant to be a mouse.</p>
+    </div>
+
+    <div class="orbit">
+      <svg class="orbit-ring" viewBox="0 0 800 800" aria-hidden="true">
+        <circle cx="400" cy="400" r="380" fill="none" stroke="currentColor" stroke-dasharray="6 8" />
+      </svg>
+      <ul class="orbit-list orbit-left">
+        {
+          left.map((f, i) => (
+            <li class:list={['orbit-item', `orbit-l${i}`, 'reveal']} style={`--d:${i * 0.1}s`}>
+              <span class="orbit-dot" aria-hidden="true" />
+              <h3>{f.title}</h3>
+              <p>{f.text}</p>
+            </li>
+          ))
+        }
+      </ul>
+      <PhoneMockup
+        src={touchpad}
+        alt="ConnectMouse touchpad with shortcuts, keyboard, sensitivity, media bar and mouse buttons"
+        fade
+        class="orbit-phone reveal"
+        sizes="(min-width: 768px) 320px, 72vw"
+      />
+      <ul class="orbit-list orbit-right">
+        {
+          right.map((f, i) => (
+            <li class:list={['orbit-item', `orbit-r${i}`, 'reveal']} style={`--d:${i * 0.1 + 0.05}s`}>
+              <span class="orbit-dot" aria-hidden="true" />
+              <h3>{f.title}</h3>
+              <p>{f.text}</p>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </div>
+</section>

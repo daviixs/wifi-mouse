@@ -1,0 +1,105 @@
+---
+import { site } from '../config/site';
+import Logo from './Logo.astro';
+import Icon from './Icon.astro';
+
+const columns = [
+  {
+    title: 'Product',
+    links: [
+      { label: 'Features', href: '#features' },
+      { label: 'Tools', href: '#tools' },
+      { label: 'Pricing', href: '#pricing' },
+      { label: 'How It Works', href: '#how-it-works' },
+      { label: 'Guides', href: '#guides' },
+    ],
+  },
+  {
+    title: 'Platforms',
+    links: [
+      { label: 'Phone App', href: site.downloads.phone, external: true },
+      { label: 'macOS', href: site.links.macGuide, external: true },
+      { label: 'Windows', href: site.links.windowsGuide, external: true },
+      { label: 'Desktop Agent', href: site.links.agentGuide, external: true },
+      { label: 'Protocol', href: site.links.protocol, external: true },
+    ],
+  },
+];
+const year = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-top">
+      <div class="footer-brand reveal">
+        <Logo size={34} />
+        <p>Turn your phone into a wireless mouse and keyboard for your Mac or Windows PC.</p>
+        <div class="store-badges">
+          <a class="store-badge" href={site.downloads.mac} target="_blank" rel="noopener"><Icon name="Laptop" size={18} /><span><small>Download for</small>macOS</span></a>
+          <a class="store-badge" href={site.downloads.windows} target="_blank" rel="noopener"><Icon name="WindowsGlyph" size={16} /><span><small>Download for</small>Windows</span></a>
+        </div>
+      </div>
+
+      <div class="footer-main reveal" style="--d:.1s">
+        <div class="footer-news">
+          <h2 class="footer-title">Get The Latest Release</h2>
+          <p>New versions, fixes and release notes are published on GitHub. Watch the repository to be notified.</p>
+          <a class="footer-news-link" href={site.links.releases} target="_blank" rel="noopener">
+            <span>github.com/daviixs/wifi-mouse</span>
+            <span class="footer-news-btn" aria-hidden="true"><Icon name="ArrowUpRight" size={18} /></span>
+            <span class="sr-only">Open releases on GitHub</span>
+          </a>
+        </div>
+        {
+          columns.map((col) => (
+            <nav class="footer-col" aria-label={col.title}>
+              <h2 class="footer-title">{col.title}</h2>
+              <ul>
+                {col.links.map((l) => (
+                  <li>
+                    <a href={l.href} {...('external' in l ? { target: '_blank', rel: 'noopener' } : {})}>{l.label}</a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          ))
+        }
+        <div class="footer-col footer-contact">
+          <h2 class="footer-title">Support</h2>
+          <dl>
+            <dt>Questions &amp; Bugs:</dt>
+            <dd><a href={site.links.issues} target="_blank" rel="noopener">GitHub Issues</a></dd>
+            <dt>Default Port:</dt>
+            <dd>8765 (local network)</dd>
+            <dt>Requirements:</dt>
+            <dd>Same Wi-Fi network</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-bar reveal">
+      <span class="footer-bar-lead"><Icon name="BookOpen" size={16} /> Read the docs</span>
+      <a href={site.links.readme} target="_blank" rel="noopener">README</a>
+      <a href={site.links.macGuide} target="_blank" rel="noopener">macOS guide</a>
+      <a href={site.links.windowsGuide} target="_blank" rel="noopener">Windows guide</a>
+      <a href={site.links.agentGuide} target="_blank" rel="noopener">Agent &amp; protocol</a>
+      <span class="footer-bar-spacer" aria-hidden="true"></span>
+      <a href={site.links.license} target="_blank" rel="noopener"><Icon name="FileText" size={16} /> License</a>
+    </div>
+  </div>
+
+  <div class="footer-wordmark" aria-hidden="true">
+    <span>CONNECTMOUSE</span>
+  </div>
+
+  <div class="container footer-bottom">
+    <div>
+      <p>Copyright © {year} ConnectMouse. All rights reserved.</p>
+      <p class="footer-small">Your phone and computer talk directly over your local network.</p>
+    </div>
+    <a class="footer-social" href={site.links.github} target="_blank" rel="noopener" aria-label="ConnectMouse on GitHub">
+      <Icon name="Code2" size={20} />
+    </a>
+  </div>
+</footer>
