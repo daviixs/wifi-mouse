@@ -1,0 +1,42 @@
+---
+/** Article teaser used by the blog listing ("row") and the related posts block ("card"). */
+import { Picture } from 'astro:assets';
+import Icon from '../Icon.astro';
+import PostMeta from './PostMeta.astro';
+import { postPath, type Post } from '../../lib/blog';
+
+interface Props {
+  post: Post;
+  variant?: 'row' | 'card' | 'featured';
+  headingLevel?: 'h2' | 'h3';
+  eager?: boolean;
+  delay?: number;
+}
+const { post, variant = 'row', headingLevel: H = 'h2', eager = false, delay = 0 } = Astro.props;
+const href = postPath(post);
+const sizes = variant === 'featured' ? '(min-width: 1024px) 520px, 92vw' : variant === 'card' ? '(min-width: 768px) 420px, 92vw' : '(min-width: 768px) 280px, 92vw';
+---
+
+<article class:list={['post-card', `post-card-${variant}`, 'reveal']} style={`--d:${delay}s`}>
+  <a href={href} class="post-card-media" tabindex="-1" aria-hidden="true" style={`--focus:${post.data.coverFocus}`}>
+    <Picture
+      src={post.data.cover}
+      alt=""
+      widths={[280, 420, 560, 780]}
+      sizes={sizes}
+      formats={['avif', 'webp']}
+      fallbackFormat="webp"
+      quality={72}
+      loading={eager ? 'eager' : 'lazy'}
+      decoding="async"
+    />
+  </a>
+  <div class="post-card-body">
+    <PostMeta post={post} />
+    <H class="post-card-title"><a href={href}>{post.data.title}</a></H>
+    <p class="post-card-excerpt">{post.data.description}</p>
+    <a href={href} class="post-card-link" aria-label={`Read article: ${post.data.title}`}>
+      Read Article <Icon name="ArrowUpRight" size={16} />
+    </a>
+  </div>
+</article>

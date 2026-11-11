@@ -1,33 +1,27 @@
 ---
-import { site } from '../config/site';
 import { Picture } from 'astro:assets';
 import Heading from './Heading.astro';
-import connected from '../assets/screens/connected.webp';
-import more from '../assets/screens/more.webp';
-import media from '../assets/screens/media.webp';
+import { getPosts, postPath } from '../lib/blog';
+import { site } from '../config/site';
 
-const guides = [
-  { tags: ['Guide', 'macOS'], title: 'Set Up ConnectMouse On Your Mac', href: site.links.macGuide, img: connected, alt: 'Connected screen of the ConnectMouse app', focus: '50% 30%' },
-  { tags: ['Guide', 'Windows'], title: 'Install The Windows Tray App', href: site.links.windowsGuide, img: more, alt: 'More options sheet with sensitivity and shortcuts', focus: '50% 55%' },
-  { tags: ['Developers', 'Protocol'], title: 'How The Desktop Agent Works', href: site.links.agentGuide, img: media, alt: 'Media control panel of the ConnectMouse app', focus: '50% 70%' },
-];
+const guides = (await getPosts()).slice(0, 3);
 ---
 
 <section class="section guides" id="guides" aria-labelledby="guides-title">
   <div class="container">
     <div class="center-head">
       <Heading id="guides-title" text="Setup Guides, *Explained*" />
-      <p class="reveal">Step-by-step documentation for every part of ConnectMouse, straight from the project repository.</p>
+      <p class="reveal">Step-by-step guides for every part of ConnectMouse, from your first connection to how the protocol works.</p>
     </div>
     <div class="guides-grid">
       {
         guides.map((g, i) => (
           <article class="guide-card reveal" style={`--d:${i * 0.1}s`}>
-            <a href={g.href} target="_blank" rel="noopener" class="guide-media" tabindex="-1" aria-hidden="true" style={`--focus:${g.focus}`}>
-              <Picture src={g.img} alt="" widths={[360, 560]} sizes="(min-width: 1024px) 380px, 92vw" formats={['avif', 'webp']} fallbackFormat="webp" quality={72} loading="lazy" decoding="async" />
+            <a href={postPath(g)} class="guide-media" tabindex="-1" aria-hidden="true" style={`--focus:${g.data.coverFocus}`}>
+              <Picture src={g.data.cover} alt="" widths={[360, 560]} sizes="(min-width: 1024px) 380px, 92vw" formats={['avif', 'webp']} fallbackFormat="webp" quality={72} loading="lazy" decoding="async" />
             </a>
             <p class="guide-tags">
-              {g.tags.map((t, j) => (
+              {g.data.tags.map((t, j) => (
                 <>
                   {j > 0 && <span class="guide-dot" aria-hidden="true">•</span>}
                   <span>{t}</span>
@@ -35,14 +29,17 @@ const guides = [
               ))}
             </p>
             <h3 class="h5">
-              <a href={g.href} target="_blank" rel="noopener">{g.title}</a>
+              <a href={postPath(g)}>{g.data.cardTitle}</a>
             </h3>
-            <a href={g.href} target="_blank" rel="noopener" class="guide-btn">
+            <a href={postPath(g)} class="guide-btn" aria-label={`Read more: ${g.data.title}`}>
               Read More Details
             </a>
           </article>
         ))
       }
     </div>
+    <p class="guides-more reveal">
+      <a href={site.links.blog} class="link-underline">View All Articles</a>
+    </p>
   </div>
 </section>

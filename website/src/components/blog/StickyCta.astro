@@ -1,0 +1,26 @@
+---
+/** Bottom bar with reading progress and a contextual CTA; appears after the intro, dismissible. */
+import Icon from '../Icon.astro';
+
+interface Props {
+  title: string;
+  text: string;
+  label: string;
+  href: string;
+}
+const { title, text, label, href } = Astro.props;
+---
+
+<div class="sticky-cta" data-sticky-cta hidden>
+  <div class="sticky-cta-progress" aria-hidden="true"><span data-reading-progress></span></div>
+  <div class="container sticky-cta-inner">
+    <div class="sticky-cta-copy">
+      <p class="sticky-cta-title">{title}</p>
+      <p class="sticky-cta-text">{text}</p>
+    </div>
+    <a class="sticky-cta-btn" href={href} target="_blank" rel="noopener">{label}</a>
+    <button class="sticky-cta-close" type="button" aria-label="Dismiss" data-sticky-close>
+      <Icon name="X" size={18} />
+    </button>
+  </div>
+</div>

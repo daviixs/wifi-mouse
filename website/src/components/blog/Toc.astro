@@ -1,0 +1,40 @@
+---
+/** "In this article" table of contents built from the post's H2 headings. */
+import type { MarkdownHeading } from 'astro';
+
+interface Props {
+  headings: MarkdownHeading[];
+  variant: 'aside' | 'inline';
+}
+const { headings, variant } = Astro.props;
+const items = [...headings.filter((h) => h.depth === 2), { slug: 'faq', text: 'Frequently Asked Questions', depth: 2 }];
+const list = items.map((h) => ({ href: `#${h.slug}`, text: h.text }));
+---
+
+{
+  variant === 'aside' ? (
+    <nav class="toc toc-aside" aria-label="In this article" data-toc>
+      <p class="toc-title">In This Article</p>
+      <ol>
+        {list.map((item) => (
+          <li>
+            <a href={item.href}>{item.text}</a>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  ) : (
+    <details class="toc toc-inline">
+      <summary>In This Article</summary>
+      <nav aria-label="In this article (mobile)">
+        <ol>
+          {list.map((item) => (
+            <li>
+              <a href={item.href}>{item.text}</a>
+            </li>
+          ))}
+        </ol>
+      </nav>
+    </details>
+  )
+}

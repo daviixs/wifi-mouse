@@ -1,20 +1,26 @@
 ---
-import { nav, site } from '../config/site';
+import { nav, site, resolveHref } from '../config/site';
 import Logo from './Logo.astro';
 import Icon from './Icon.astro';
 import Button from './Button.astro';
+
+const path = Astro.url.pathname;
+const onHome = path.replace(/\/+$/, '') === '';
+const href = (h: string) => resolveHref(h, path);
+const isActive = (item: (typeof nav)[number], index: number) =>
+  onHome ? index === 0 : !item.href.startsWith('#') && `${path.replace(/\/+$/, '')}/`.startsWith(`${item.href.replace(/\/+$/, '')}/`);
 ---
 
 <header class="site-header" data-header>
   <div class="container header-inner">
-    <a href="#top" class="header-logo" aria-label="ConnectMouse home"><Logo /></a>
+    <a href={onHome ? '#top' : '/'} class="header-logo" aria-label="ConnectMouse home"><Logo /></a>
 
     <nav class="nav-desktop" aria-label="Main">
       <ul class="nav-list">
         {
           nav.map((item, index) => (
             <li class:list={['nav-item', { 'has-children': item.children }]}>
-              <a href={item.href} class:list={['nav-link', { 'is-active': index === 0 }]}>
+              <a href={href(item.href)} class:list={['nav-link', { 'is-active': isActive(item, index) }]} aria-current={isActive(item, index) && !onHome ? 'page' : undefined}>
                 {item.label}
                 {item.badge && <span class="nav-badge">{item.badge}</span>}
                 {item.children && <Icon name="ChevronDown" size={16} class="nav-caret" />}
@@ -25,7 +31,7 @@ import Button from './Button.astro';
                   <ul>
                     {item.children.map((child) => (
                       <li>
-                        <a href={child.href} class="nav-dropdown-link">
+                        <a href={href(child.href)} class="nav-dropdown-link">
                           <span class="nav-dropdown-icon">
                             <Icon name={child.icon} size={20} />
                           </span>
@@ -65,7 +71,7 @@ import Button from './Button.astro';
         {
           nav.map((item) => (
             <li>
-              <a href={item.href} data-menu-link>
+              <a href={href(item.href)} data-menu-link>
                 {item.label}
                 {item.badge && <span class="nav-badge">{item.badge}</span>}
               </a>
@@ -73,7 +79,7 @@ import Button from './Button.astro';
                 <ul class="mobile-sub">
                   {item.children.map((child) => (
                     <li>
-                      <a href={child.href} data-menu-link>
+                      <a href={href(child.href)} data-menu-link>
                         <Icon name={child.icon} size={18} /> {child.label}
                       </a>
                     </li>

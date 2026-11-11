@@ -1,7 +1,11 @@
 ---
-import { site } from '../config/site';
+import { site, resolveHref } from '../config/site';
+import { getPosts, postPath } from '../lib/blog';
 import Logo from './Logo.astro';
 import Icon from './Icon.astro';
+
+const posts = await getPosts();
+const guide = (index: number) => (posts[index] ? postPath(posts[index]) : site.links.blog);
 
 const columns = [
   {
@@ -12,15 +16,17 @@ const columns = [
       { label: 'Pricing', href: '#pricing' },
       { label: 'How It Works', href: '#how-it-works' },
       { label: 'Guides', href: '#guides' },
+      { label: 'Blog', href: site.links.blog },
     ],
   },
   {
     title: 'Platforms',
     links: [
       { label: 'Phone App', href: site.downloads.phone, external: true },
-      { label: 'macOS', href: site.links.macGuide, external: true },
-      { label: 'Windows', href: site.links.windowsGuide, external: true },
-      { label: 'Desktop Agent', href: site.links.agentGuide, external: true },
+      { label: 'macOS', href: guide(0) },
+      { label: 'Windows', href: guide(1) },
+      { label: 'Microsoft Store', href: site.links.msStore, external: true },
+      { label: 'Desktop Agent', href: guide(2) },
       { label: 'Protocol', href: site.links.protocol, external: true },
     ],
   },
@@ -57,7 +63,7 @@ const year = new Date().getFullYear();
               <ul>
                 {col.links.map((l) => (
                   <li>
-                    <a href={l.href} {...('external' in l ? { target: '_blank', rel: 'noopener' } : {})}>{l.label}</a>
+                    <a href={resolveHref(l.href, Astro.url.pathname)} {...('external' in l ? { target: '_blank', rel: 'noopener' } : {})}>{l.label}</a>
                   </li>
                 ))}
               </ul>

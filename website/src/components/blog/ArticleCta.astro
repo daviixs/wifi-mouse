@@ -1,0 +1,45 @@
+---
+/** End-of-article conversion block, tailored to the platform the post is about. */
+import Button from '../Button.astro';
+import Icon from '../Icon.astro';
+import { site } from '../../config/site';
+
+interface Props {
+  platform: 'mac' | 'windows' | 'phone';
+}
+const { platform } = Astro.props;
+
+const copy = {
+  mac: {
+    icon: 'Laptop',
+    title: 'Control Your Mac From Your Phone Today',
+    text: 'Get the free ConnectMouse menu bar app for macOS 13+, allow Accessibility once and use your phone as a trackpad, keyboard and remote.',
+    primary: { label: 'Download For Mac', href: site.downloads.mac },
+    secondary: { label: 'Get The Phone App', href: site.downloads.phone },
+  },
+  windows: {
+    icon: 'WindowsGlyph',
+    title: 'Turn Your Phone Into A Mouse For Your PC',
+    text: 'Get ConnectMouse for Windows 10 and 11 from the Microsoft Store, allow it on private networks and control your PC from across the room.',
+    primary: { label: 'Get It From Microsoft Store', href: site.downloads.windows },
+    secondary: { label: 'Get The Phone App', href: site.downloads.phone },
+  },
+  phone: {
+    icon: 'Smartphone',
+    title: 'Private By Design, Free To Use',
+    text: 'No account, no cloud and no subscription. Install the phone app, start the desktop app on your Mac or PC and connect over your own Wi-Fi.',
+    primary: { label: 'Download Free', href: site.downloads.phone },
+    secondary: { label: 'View Source On GitHub', href: site.links.github },
+  },
+}[platform];
+---
+
+<aside class="article-cta" aria-labelledby="article-cta-title">
+  <span class="article-cta-icon" aria-hidden="true"><Icon name={copy.icon} size={22} /></span>
+  <p id="article-cta-title" class="article-cta-title">{copy.title}</p>
+  <p class="article-cta-text">{copy.text}</p>
+  <div class="article-cta-actions">
+    <Button href={copy.primary.href} external magnetic>{copy.primary.label}</Button>
+    <Button href={copy.secondary.href} external variant="outline">{copy.secondary.label}</Button>
+  </div>
+</aside>

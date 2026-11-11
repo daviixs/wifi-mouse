@@ -389,6 +389,7 @@ h1, h2, h3, h4, h5 { color: var(--c-dark); font-weight: 400; }
 .guide-card h3 a:hover { color: var(--c-primary); }
 .guide-btn { align-self: flex-start; margin-top: auto; padding: 10px 28px; border-radius: 999px; background: #fff; border: 1px solid var(--c-border); font-size: 14.5px; color: var(--c-dark); transition: background-color 0.3s, color 0.3s; }
 .guide-btn:hover { background: var(--c-dark); color: #fff; }
+.guides-more { margin-top: 40px; text-align: center; }
 
 /* ---------- CTA ---------- */
 .cta-box { display: grid; grid-template-columns: 1fr 1fr; border-radius: var(--radius-lg); overflow: hidden; background: var(--c-light); min-height: 620px; }
