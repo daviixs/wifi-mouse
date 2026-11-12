@@ -44,6 +44,7 @@ use windows_sys::{
 
 use crate::{
     agent::{self, AgentHandle},
+    autostart,
     l10n::{Lang, Strings},
     model::{AgentMessage, State},
 };
@@ -53,6 +54,9 @@ const WM_TRAY: u32 = WM_APP + 1;
 const WM_AGENT: u32 = WM_APP + 2;
 /// Sent by a second launch so the running copy opens its panel instead.
 const WM_SHOW_PANEL: u32 = WM_APP + 3;
+/// Quit cleanly (server stopped, tray icon removed). Posted by the Inno Setup
+/// installer/uninstaller (`windows/installer/ConnectMouse.iss`): keep the value.
+const WM_QUIT_APP: u32 = WM_APP + 4;
 const TRAY_ID: u32 = 1;
 /// NIN_SELECT | NINF_KEY: Enter/Space on the focused notification icon.
 const NIN_KEYSELECT: u32 = NIN_SELECT | 1;
@@ -75,6 +79,7 @@ const BUTTON_IDS: [i32; 6] = [
 const MENU_OPEN: usize = 201;
 const MENU_TOGGLE: usize = 202;
 const MENU_QUIT: usize = 203;
+const MENU_AUTOSTART: usize = 204;
 const MENU_LANGUAGE: usize = 210; // + index in Lang::ALL
 
 const TIMER_COPIED: usize = 1;
@@ -188,13 +193,17 @@ struct App {
 }
 
 pub fn run() {
+    // Started at sign-in by the Run key (`--autostart`) or the MSIX startup
+    // task: go straight to the tray with the server on, no first-run balloon.
+    let at_logon = autostart::launched_at_logon(std::env::args())
+        || (autostart::packaged() && autostart::activated_by_startup_task());
     unsafe {
         let instance = GetModuleHandleW(null());
         // One copy per user session; a second launch opens the existing panel.
         let _single = CreateMutexW(null(), 1, w!("Local\\RemoteMouse.SingleInstance"));
         if GetLastError() == ERROR_ALREADY_EXISTS {
             let existing = FindWindowW(CLASS_NAME, null());
-            if !existing.is_null() {
+            if !existing.is_null() && !at_logon {
                 // Let the running copy take the foreground to show its panel.
                 AllowSetForegroundWindow(ASFW_ANY);
                 PostMessageW(existing, WM_SHOW_PANEL, 0, 0);
@@ -277,7 +286,13 @@ pub fn run() {
         APP.with_borrow_mut(|slot| *slot = Some(app));
         refresh(hwnd);
         add_tray_icon(hwnd);
-        welcome_once(hwnd);
+        if at_logon {
+            start_server(hwnd);
+            refresh(hwnd);
+            update_tray_tip(hwnd);
+        } else {
+            welcome_once(hwnd);
+        }
         SetTimer(hwnd, TIMER_ADDRESSES, 5000, None);
 
         let mut message: MSG = zeroed();
@@ -335,6 +350,10 @@ unsafe extern "system" fn window_proc(
                 show_panel(hwnd);
                 0
             }
+            WM_QUIT_APP => {
+                quit(hwnd);
+                0
+            }
             WM_COMMAND => {
                 // BN_CLICKED (0) only: owner-drawn buttons also report
                 // BN_DOUBLECLICKED, which must not toggle the server twice.
@@ -384,8 +403,14 @@ unsafe extern "system" fn window_proc(
             }
             WM_ENDSESSION => {
                 if wparam != 0 {
-                    remove_tray_icon(hwnd);
-                    stop_server();
+                    if lparam as u32 & ENDSESSION_CLOSEAPP != 0 {
+                        // Restart Manager (installer/updater) asks us to exit;
+                        // the session itself keeps running.
+                        quit(hwnd);
+                    } else {
+                        remove_tray_icon(hwnd);
+                        stop_server();
+                    }
                 }
                 0
             }
@@ -459,6 +484,18 @@ fn start_server(hwnd: HWND) {
                 error.to_string(),
             )))),
     });
+}
+
+fn toggle_autostart(current: autostart::Status) {
+    match current {
+        // Packaged app switched off by the user: Windows only lets the
+        // user turn it back on, in Settings → Apps → Startup.
+        autostart::Status::DisabledByUser => open(w!("ms-settings:startupapps"), null()),
+        autostart::Status::Off | autostart::Status::On => {
+            autostart::set(!current.checked());
+        }
+        _ => {}
+    }
 }
 
 fn stop_server() {
@@ -724,6 +761,8 @@ fn show_menu(hwnd: HWND, x: i32, y: i32) {
         return;
     };
     let s = lang.strings();
+    // Read fresh: Settings → Apps → Startup may have changed it meanwhile.
+    let startup = autostart::status();
     unsafe {
         let menu = CreatePopupMenu();
         let languages = CreatePopupMenu();
@@ -754,6 +793,25 @@ fn show_menu(hwnd: HWND, x: i32, y: i32) {
             languages as usize,
             s.button_language,
         );
+        if startup != autostart::Status::Unavailable {
+            let mut flags = MF_STRING;
+            flags |= if startup.checked() {
+                MF_CHECKED
+            } else {
+                MF_UNCHECKED
+            };
+            flags |= if startup.enabled() {
+                MF_ENABLED
+            } else {
+                MF_GRAYED
+            };
+            let label = if startup == autostart::Status::DisabledByUser {
+                s.menu_autostart_settings
+            } else {
+                s.menu_autostart
+            };
+            append(menu, flags, MENU_AUTOSTART, label);
+        }
         AppendMenuW(menu, MF_SEPARATOR, 0, null());
         append(menu, MF_STRING, MENU_QUIT, s.button_quit);
         SetMenuDefaultItem(menu, MENU_OPEN as u32, 0);
@@ -774,6 +832,7 @@ fn show_menu(hwnd: HWND, x: i32, y: i32) {
             MENU_OPEN => show_panel(hwnd),
             MENU_TOGGLE => toggle_server(hwnd),
             MENU_QUIT => quit(hwnd),
+            MENU_AUTOSTART => toggle_autostart(startup),
             index if (MENU_LANGUAGE..MENU_LANGUAGE + Lang::ALL.len()).contains(&index) => {
                 set_language(hwnd, Lang::ALL[index - MENU_LANGUAGE]);
             }

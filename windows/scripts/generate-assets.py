@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Generates the Windows icon and MSIX/Store logos from assets/images/icon.png.
+"""Generates the Windows icon, MSIX/Store logos and Inno Setup wizard images
+from assets/images/icon.png.
 
 Outputs are committed, so building on Windows does not need Python. Re-run
 after changing the app icon:  python3 windows/scripts/generate-assets.py
@@ -26,6 +27,9 @@ SQUARE = {
 CROPPED = {"Square44x44Logo.png": 44}
 WIDE = {"Wide310x150Logo.png": (310, 150), "SplashScreen.png": (620, 300)}
 ICO_SIZES = [16, 20, 24, 32, 40, 48, 64, 128, 256]
+INSTALLER = WINDOWS / "installer"
+# Top-right image of the Inno Setup wizard at 100/125/150/200 % DPI.
+WIZARD_SMALL = [55, 69, 83, 110]
 
 
 def cropped(image: Image.Image) -> Image.Image:
@@ -57,7 +61,10 @@ def main() -> None:
         sizes=[(size, size) for size in ICO_SIZES],
         append_images=frames[:-1],
     )
-    print(f"Assets gerados em {ASSETS} e resources/RemoteMouse.ico")
+    INSTALLER.mkdir(parents=True, exist_ok=True)
+    for size in WIZARD_SMALL:
+        resized(icon, size).save(INSTALLER / f"WizardSmallImage-{size}.png", optimize=True)
+    print(f"Assets gerados em {ASSETS}, {INSTALLER} e resources/RemoteMouse.ico")
 
 
 if __name__ == "__main__":

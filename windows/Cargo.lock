@@ -532,6 +532,7 @@ dependencies = [
  "embed-resource",
  "remote-mouse-agent",
  "tokio",
+ "windows",
  "windows-sys",
 ]
 

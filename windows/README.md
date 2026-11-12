@@ -3,11 +3,11 @@
 App **nativo Win32 em Rust** que fica na **área de notificação** (ao lado do relógio), equivalente ao app de barra de menus do macOS em [`macos/`](../macos/README.md). Não usa Tauri, Electron nem webview.
 
 - **Clique esquerdo** no ícone do mouse abre/fecha o painel. **Esc** ou clicar fora fecha.
-- **Clique direito** abre o menu **Abrir · Iniciar/Parar servidor · Idioma · Sair**.
+- **Clique direito** abre o menu **Abrir · Iniciar/Parar servidor · Idioma · Iniciar com o Windows · Sair**.
 - Painel: status Online/Offline, nome do PC, endereços `IP:8765` (sem `ws://` e sem separador de milhar), **Copiar endereço** (copia o primeiro, ex. `192.168.0.12:8765`), configurações de rede, Firewall do Windows, **Iniciar/Parar servidor** e **Sair**.
 - Idiomas: pt-BR (automático em qualquer Windows em português), inglês e espanhol; fallback em inglês. O botão **PT/EN/ES** no topo do painel (ou o menu **Idioma**) troca e salva a escolha em `HKCU\Software\RemoteMouse`.
 - Uma única cópia por usuário: abrir de novo apenas mostra o painel da cópia em execução.
-- O servidor só inicia quando você clica em **Iniciar servidor** (igual ao macOS).
+- O servidor só inicia quando você clica em **Iniciar servidor** (igual ao macOS). A exceção é quando o app abre sozinho com o Windows (veja [Iniciar com o Windows](#iniciar-com-o-windows)): aí ele já liga o servidor e fica só no ícone da bandeja.
 
 ## Arquitetura
 
@@ -55,6 +55,45 @@ cargo test --locked --manifest-path windows\Cargo.toml
 No Windows 11, ícones novos podem ficar escondidos na seta **^** da barra de tarefas. Na primeira execução aparece um aviso dizendo onde o app está. Para deixar o ícone sempre visível: **Configurações → Personalização → Barra de tarefas → Outros ícones da bandeja do sistema → Remote Mouse**.
 
 Um `.exe` sem assinatura baixado da internet pode mostrar o SmartScreen ("O Windows protegeu o computador"). Para teste, use **Mais informações → Executar assim mesmo**. A versão da Store é assinada pela Microsoft.
+
+## Instalador com assistente (Inno Setup)
+
+Gera `windows\dist\ConnectMouse-Setup-<versão>.exe`, um instalador clássico "Avançar → Avançar → Concluir" em português, inglês ou espanhol (escolhe pelo idioma do Windows).
+
+1. Instale o **Inno Setup 6** (grátis): <https://jrsoftware.org/isdl.php> (ou `winget install JRSoftware.InnoSetup`). O Inno Setup 7 também funciona.
+2. Na raiz do repositório (PowerShell):
+
+   ```powershell
+   # Se o PowerShell bloquear scripts: Set-ExecutionPolicy -Scope Process Bypass
+   .\windows\installer\build-installer.ps1
+   ```
+
+   O script lê a versão do `windows\Cargo.toml`, roda `cargo build --release --locked --target x86_64-pc-windows-msvc`, acha o `ISCC.exe` (PATH, registro ou `Program Files`) e compila `windows\installer\ConnectMouse.iss`. Opções: `-Arch arm64`, `-SkipBuild`, `-Version 1.0.1`, `-Iscc "C:\...\ISCC.exe"`. Também dá para abrir o `.iss` no Inno Setup e clicar em **Compile** (depois do `cargo build --release`).
+
+O que o instalador faz:
+
+- Instala **só para o usuário atual**, sem pedir administrador, em `%LOCALAPPDATA%\Programs\ConnectMouse`. Na primeira tela dá para escolher **Instalar para todos os usuários** (pede administrador, vai para `C:\Program Files\ConnectMouse`).
+- Atalho no menu Iniciar; atalho na área de trabalho é opcional.
+- Caixa **"Iniciar o ConnectMouse quando o Windows iniciar"** (marcada por padrão): grava o mesmo valor que o menu do app usa (veja abaixo).
+- Só na instalação para todos os usuários: caixa **"Liberar o ConnectMouse no Firewall do Windows"**, que cria as regras de entrada TCP 8765 e UDP 5353 para redes **privadas/domínio** (`netsh advfirewall`). Na instalação por usuário não há como criar regras sem administrador; o Windows mostra o aviso "Permitir acesso" na primeira vez que o servidor inicia (veja a seção do Firewall).
+- Define o idioma inicial do app igual ao do instalador (se ainda não houver escolha salva).
+- Se o app estiver aberto, fecha antes de atualizar/desinstalar. Ao final, oferece abrir o ConnectMouse.
+- Desinstalar (Configurações → Aplicativos ou menu Iniciar) fecha o app, remove o "Iniciar com o Windows" e as regras de firewall que ele criou. As preferências em `HKCU\Software\RemoteMouse` ficam.
+- Atualizar = rodar um instalador mais novo por cima (o `AppId` do `.iss` nunca muda).
+- Silencioso (TI/scripts): `ConnectMouse-Setup-1.0.0.exe /VERYSILENT /TASKS="autostart"` (sem `autostart` para não iniciar com o Windows; `/ALLUSERS /TASKS="autostart,firewall"` para todos os usuários).
+
+**SmartScreen:** um instalador sem assinatura digital baixado da internet mostra "O Windows protegeu o computador" (**Mais informações → Executar assim mesmo**) e alguns antivírus desconfiam. Para distribuir fora da Store, assine o `Setup.exe` (e o `RemoteMouse.exe`) com um certificado de assinatura de código (OV/EV, ou Azure Trusted Signing) usando a diretiva `SignTool` do Inno Setup. A versão da Microsoft Store não tem esse problema.
+
+## Iniciar com o Windows
+
+No menu do botão direito do ícone: **Iniciar com o Windows** (marcado = ligado). Ao abrir sozinho no login, o app vai direto para a bandeja **com o servidor já ligado** e sem o aviso de boas-vindas.
+
+| Versão | Como funciona |
+| --- | --- |
+| `.exe` (instalador ou solto) | Valor `ConnectMouse` em `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` com `"<caminho>\RemoteMouse.exe" --autostart`. É o mesmo valor que a caixa do instalador grava. Se você desligar em **Configurações → Aplicativos → Inicialização** (ou no Gerenciador de Tarefas), o menu mostra desmarcado; marcar de novo reativa. |
+| MSIX / Microsoft Store | Apps empacotados ignoram a chave `Run`. O `AppxManifest.xml` declara uma tarefa `windows.startupTask` (`TaskId="ConnectMouseStartup"`, começa desligada) e o app usa a API WinRT `StartupTask`. Se o usuário desligou em **Configurações → Aplicativos → Inicialização**, o Windows não deixa o app religar sozinho: o menu vira **"Iniciar com o Windows (ativar em Configurações)…"** e abre essa página. Se uma política da empresa forçar ligado/desligado, o item fica cinza. |
+
+Código: `windows/src/autostart.rs` (lógica testada com `cargo test`) e o item do menu em `windows/src/ui.rs`.
 
 ## Firewall do Windows e porta 8765
 
