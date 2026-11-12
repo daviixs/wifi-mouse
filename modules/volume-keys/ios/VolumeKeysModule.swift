@@ -85,10 +85,15 @@ public class VolumeKeysModule: Module {
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { self.resetting = false }
   }
 
+  /// Scene-based lookup (the app uses the UIScene life cycle, so there is no
+  /// app-delegate window): the key window, else the first window of the
+  /// foreground scene, else any window, so an early `setEnabled(true)` still
+  /// attaches the hidden MPVolumeView.
   private func keyWindow() -> UIWindow? {
-    return UIApplication.shared.connectedScenes
-      .compactMap { $0 as? UIWindowScene }
-      .flatMap { $0.windows }
-      .first { $0.isKeyWindow }
+    let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+    let windows = scenes.flatMap { $0.windows }
+    return windows.first { $0.isKeyWindow }
+      ?? scenes.first { $0.activationState == .foregroundActive }?.windows.first
+      ?? windows.first
   }
 }
