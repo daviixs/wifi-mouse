@@ -1,15 +1,15 @@
 /**
  * Single source of truth for every outbound link on the landing page.
  *
- * Only real, existing URLs are used. The Windows app has a Microsoft Store
- * listing (product 9MZHLB2RMLX8, submitted for certification). The phone and
- * Mac apps have no store listings yet, so their CTAs point at the GitHub
- * Releases page of the public repository. Replace `downloads.*` with the
- * final Play Store / App Store / direct-download URLs when they exist
- * (see website/README.md).
+ * Direct downloads use GitHub's `releases/latest/download/<asset>` URLs, so they
+ * always serve the newest release as long as every release keeps the same asset
+ * names (ConnectMouse-Windows-Setup.exe, ConnectMouse-macOS.dmg,
+ * ConnectMouse-Android.apk). The Windows app is also on the Microsoft Store
+ * (product 9MZHLB2RMLX8). See website/README.md.
  */
 const repo = 'https://github.com/daviixs/wifi-mouse';
 const blob = `${repo}/blob/main`;
+const latest = `${repo}/releases/latest/download`;
 
 export const site = {
   name: 'ConnectMouse',
@@ -33,11 +33,16 @@ export const site = {
     blog: '/blog/',
     privacy: '/privacy/',
   },
-  /** Phone and Mac are PLACEHOLDERS (GitHub Releases) until real store/download URLs exist. */
   downloads: {
-    phone: `${repo}/releases`,
-    mac: `${repo}/releases`,
-    windows: 'https://apps.microsoft.com/detail/9MZHLB2RMLX8',
+    /** On-page Downloads section (use with `resolveHref` outside the home page). */
+    section: '#download',
+    /** Windows installer (Inno Setup wizard) from the latest GitHub release. */
+    windows: `${latest}/ConnectMouse-Windows-Setup.exe`,
+    msStore: 'https://apps.microsoft.com/detail/9MZHLB2RMLX8',
+    mac: `${latest}/ConnectMouse-macOS.dmg`,
+    /** Android APK for direct install (sideload); no Play Store listing yet. */
+    android: `${latest}/ConnectMouse-Android.apk`,
+    releases: `${repo}/releases`,
   },
 } as const;
 
@@ -61,14 +66,14 @@ export const nav: NavItem[] = [
   },
   {
     label: 'Platforms',
-    href: '#pricing',
+    href: '#download',
     children: [
-      { label: 'Phone app', description: 'Android and iOS, built with Expo.', href: '#pricing', icon: 'Smartphone' },
-      { label: 'macOS menu bar app', description: 'Lives next to your clock on the Mac.', href: '#pricing', icon: 'Laptop' },
-      { label: 'Windows tray app', description: 'Native Win32 app in the notification area.', href: '#pricing', icon: 'Monitor' },
+      { label: 'Android app', description: 'Direct APK install for your phone.', href: '#download', icon: 'Smartphone' },
+      { label: 'macOS menu bar app', description: 'Lives next to your clock on the Mac.', href: '#download', icon: 'Laptop' },
+      { label: 'Windows tray app', description: 'Installer or Microsoft Store.', href: '#download', icon: 'Monitor' },
     ],
   },
-  { label: 'Windows App', href: '#pricing', badge: 'NEW' },
+  { label: 'Download', href: '#download', badge: 'NEW' },
   { label: 'Blog', href: '/blog/' },
 ];
 

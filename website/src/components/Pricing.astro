@@ -53,7 +53,7 @@ const source: Feature[] = [
       <article class="plan reveal">
         <span class="plan-icon"><Icon name="Smartphone" size={20} /></span>
         <h3 class="plan-name">Phone App</h3>
-        <p class="plan-desc">The remote in your pocket — Android &amp; iOS</p>
+        <p class="plan-desc">The remote in your pocket — Android APK (iOS coming later)</p>
         <p class="plan-price">$0</p>
         <p class="plan-note">Free forever, no in-app purchases</p>
         <hr />
@@ -61,7 +61,7 @@ const source: Feature[] = [
         <ul class="plan-list">
           {phone.map((f) => <li class:list={{ 'is-off': !f.included }}><span class="plan-check"><Icon name={f.included ? 'Check' : 'X'} size={12} strokeWidth={2.4} /></span>{f.included ? f.label : `No ${f.label.toLowerCase()} required`}</li>)}
         </ul>
-        <Button href={site.downloads.phone} external variant="outline" class="plan-btn">Get The App</Button>
+        <Button href={site.downloads.android} variant="outline" class="plan-btn">Download Android APK</Button>
       </article>
 
       <article class="plan plan-featured reveal" style="--d:.1s" id="desktop-plan" data-plan>
@@ -78,8 +78,8 @@ const source: Feature[] = [
         <ul class="plan-list only-windows">
           {windows.map((f) => <li><span class="plan-check"><Icon name="Check" size={12} strokeWidth={2.4} /></span>{f.label}</li>)}
         </ul>
-        <Button href={site.downloads.mac} external class="plan-btn only-mac">Download For Mac</Button>
-        <Button href={site.downloads.windows} external class="plan-btn only-windows">Download For Windows</Button>
+        <Button href={site.downloads.mac} class="plan-btn only-mac">Download For Mac</Button>
+        <Button href={site.downloads.windows} class="plan-btn only-windows">Download For Windows</Button>
       </article>
 
       <article class="plan reveal" style="--d:.2s">

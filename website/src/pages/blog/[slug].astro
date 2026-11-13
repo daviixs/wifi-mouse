@@ -75,8 +75,8 @@ const pageTitle = seoTitle.length + ` | ${site.name}`.length <= 65 ? `${seoTitle
 
 const sticky = {
   mac: { title: 'Want to try it on your Mac?', text: 'Free menu bar app for macOS 13+. No account needed.', label: 'Download For Mac', href: site.downloads.mac },
-  windows: { title: 'Ready to control your PC from your phone?', text: 'ConnectMouse for Windows 10 and 11 on the Microsoft Store.', label: 'Get The App', href: site.downloads.windows },
-  phone: { title: 'Your phone, your Wi-Fi, your computer.', text: 'No cloud, no account, no subscription.', label: 'Download Free', href: site.downloads.phone },
+  windows: { title: 'Ready to control your PC from your phone?', text: 'ConnectMouse for Windows 10 and 11 on the Microsoft Store.', label: 'Get The App', href: site.downloads.msStore },
+  phone: { title: 'Your phone, your Wi-Fi, your computer.', text: 'No cloud, no account, no subscription.', label: 'Download Free', href: `/${site.downloads.section}` },
 }[data.cta];
 ---
 

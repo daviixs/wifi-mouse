@@ -57,7 +57,7 @@ const isActive = (item: (typeof nav)[number], index: number) =>
         <span>GitHub</span>
         <Icon name="ArrowUpRight" size={14} />
       </a>
-      <Button href={site.downloads.phone} external class="header-cta">Download</Button>
+      <Button href={href(site.downloads.section)} class="header-cta">Download</Button>
       <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" data-menu-toggle>
         <span class="sr-only">Open menu</span>
         <span class="menu-toggle-bars" aria-hidden="true"><span></span><span></span></span>
@@ -91,7 +91,7 @@ const isActive = (item: (typeof nav)[number], index: number) =>
         }
       </ul>
       <div class="mobile-menu-actions">
-        <Button href={site.downloads.phone} external>Download</Button>
+        <Button href={href(site.downloads.section)} data-menu-link>Download</Button>
         <Button href={site.links.github} external variant="outline">View on GitHub</Button>
       </div>
     </nav>

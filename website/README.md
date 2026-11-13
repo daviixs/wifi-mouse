@@ -39,12 +39,20 @@ from `src/assets/screens/` with relative paths so `astro:assets` optimizes them.
 - `src/scripts/main.ts` — progressive enhancement: sticky header, mobile menu, scroll reveal, count-up,
   magnetic buttons, pricing toggle and carousel. Honors `prefers-reduced-motion`.
 
-## Links that still need real URLs
+## Download links
 
-`downloads.windows` points to the Microsoft Store listing (https://apps.microsoft.com/detail/9MZHLB2RMLX8,
-submitted for certification). The phone and Mac apps have no store listings or release binaries yet, so
-`downloads.phone` and `downloads.mac` in `src/config/site.ts` point to the GitHub Releases page. Replace them
-with the Play Store / App Store / direct download URLs when available.
+All download buttons read `site.downloads` in `src/config/site.ts` and use GitHub's
+`releases/latest/download/<asset>` URLs, so they always point at the newest release. Every GitHub
+release must therefore keep these exact asset names:
+
+| Platform | Asset |
+| --- | --- |
+| Windows installer | `ConnectMouse-Windows-Setup.exe` |
+| macOS | `ConnectMouse-macOS.dmg` |
+| Android (direct APK install) | `ConnectMouse-Android.apk` |
+
+The Microsoft Store listing is https://apps.microsoft.com/detail/9MZHLB2RMLX8. The Downloads section
+lives in `src/components/Downloads.astro` (`#download`); header, hero and CTA buttons anchor to it.
 
 ## Credits
 

@@ -454,6 +454,37 @@ h1, h2, h3, h4, h5 { color: var(--c-dark); font-weight: 400; }
 .footer-social { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; color: var(--c-dark); transition: background-color 0.3s; }
 .footer-social:hover { background: #f1f4fd; }
 
+/* ---------- Downloads ---------- */
+.downloads .split-head { margin-bottom: 48px; }
+.dl-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+.dl-card { position: relative; display: flex; flex-direction: column; padding: 28px 24px 24px; border-radius: var(--radius); background: var(--c-light); border: 1px solid var(--c-border); transition: transform 0.5s var(--ease), box-shadow 0.5s var(--ease); }
+.dl-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-card); }
+.dl-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; margin-bottom: 20px; color: #fff; background: var(--dl-c, var(--c-primary)); box-shadow: 0 10px 22px -12px var(--dl-c, var(--c-primary)); }
+.dl-windows { --dl-c: #0031f4; }
+.dl-store { --dl-c: #1b1b1f; }
+.dl-store .dl-icon { background: #fff; border: 1px solid var(--c-border); box-shadow: var(--shadow-soft); }
+.dl-mac { --dl-c: #322b2b; }
+.dl-android { --dl-c: #1fbf62; }
+.dl-name { font-size: 22px; font-weight: 500; }
+.dl-meta { margin-top: 6px; font-size: 14px; color: var(--c-dark); }
+.dl-note { margin: 12px 0 24px; font-size: 14px; line-height: 1.55; color: var(--c-muted); }
+.dl-btn { margin-top: auto; display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-radius: 14px; color: #fff; background: var(--dl-c); border: 1px solid transparent; transition: transform 0.35s var(--ease), box-shadow 0.35s var(--ease), filter 0.3s; }
+.dl-btn:hover { transform: translateY(-2px); filter: brightness(1.08); box-shadow: 0 14px 26px -14px var(--dl-c); }
+.dl-btn-text { display: flex; flex-direction: column; flex: 1; font-size: 18px; font-weight: 600; line-height: 1.1; }
+.dl-btn-text small { font-size: 11px; font-weight: 400; letter-spacing: 0.02em; opacity: 0.85; }
+.dl-btn-file { font-size: 12px; font-weight: 600; padding: 4px 8px; border-radius: 999px; background: rgb(255 255 255 / 0.18); text-transform: uppercase; letter-spacing: 0.04em; }
+.dl-btn-windows { background: linear-gradient(180deg, #0031f4 0%, #2f57ff 100%); }
+.dl-btn-store { background: #000; border-color: #a6a6a6; border-radius: 8px; }
+.dl-btn-mac { background: linear-gradient(180deg, #3a3a3c 0%, #111 100%); }
+.dl-btn-android { background: linear-gradient(180deg, #23c46a 0%, #129a4d 100%); }
+.dl-foot { margin-top: 32px; text-align: center; font-size: 15px; color: var(--c-muted); }
+.dl-foot a { display: inline-flex; align-items: center; gap: 4px; color: var(--c-primary); border-bottom: 1px solid currentColor; }
+.store-badge-ms { background: #000; }
+@media (max-width: 1200px) { .downloads .split-head { margin-bottom: 48px; }
+.dl-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 767px) { .downloads .split-head { margin-bottom: 48px; }
+.dl-grid { grid-template-columns: 1fr; } }
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1200px) {
   .nav-link { padding: 0 14px; }

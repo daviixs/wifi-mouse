@@ -19,6 +19,15 @@ const custom: Record<string, string> = {
   // Four-pane window glyph (generic, self-drawn).
   WindowsGlyph:
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.2 10.5 4v7.3H3zM11.6 3.8 21 2.5v8.8h-9.4zM3 12.7h7.5V20L3 18.8zM11.6 12.7H21v8.8l-9.4-1.3z"/></svg>',
+  // Apple logo (Simple Icons, CC0).
+  AppleGlyph:
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>',
+  // Android robot head (Simple Icons, CC0).
+  AndroidGlyph:
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M18.4395 5.5586c-.675 1.1664-1.352 2.3318-2.0274 3.498-.0366-.0155-.0742-.0286-.1113-.043-1.8249-.6957-3.484-.8-4.42-.787-1.8551.0185-3.3544.4643-4.2597.8203-.084-.1494-1.7526-3.021-2.0215-3.4864a1.1451 1.1451 0 0 0-.1406-.1914c-.3312-.364-.9054-.4859-1.379-.203-.475.282-.7136.9361-.3886 1.5019 1.9466 3.3696-.0966-.2158 1.9473 3.3593.0172.031-.4946.2642-1.3926 1.0177C2.8987 12.176.452 14.772 0 18.9902h24c-.119-1.1108-.3686-2.099-.7461-3.0683-.7438-1.9118-1.8435-3.2928-2.7402-4.1836a12.1048 12.1048 0 0 0-2.1309-1.6875c.6594-1.122 1.312-2.2559 1.9649-3.3848.2077-.3615.1886-.7956-.0254-1.1191a1.1001 1.1001 0 0 0-.9258-.5137c-.4014-.0006-.7726.2161-.9570.5254zM6.9258 13.8145c.4683.0012.8467.3848.8457.8573-.0005.4727-.3801.8538-.8486.8535-.4688-.0002-.8487-.383-.8487-.8555s.3804-.8553.8516-.8553zm10.1504 0c.4713.0027.8506.3858.8496.8573-.0013.4727-.3801.8538-.8486.8535-.4688-.0002-.8487-.383-.8487-.8555s.3802-.8553.8477-.8553z"/></svg>',
+  // Microsoft four-square logo (multi-colour, for the Store badge).
+  MicrosoftLogo:
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 23 23"><path fill="#f25022" d="M1 1h10v10H1z"/><path fill="#7fba00" d="M12 1h10v10H12z"/><path fill="#00a4ef" d="M1 12h10v10H1z"/><path fill="#ffb900" d="M12 12h10v10H12z"/></svg>',
   // Sparkle used as a decorative divider.
   Sparkle:
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c.6 6.4 5.6 11.4 12 12-6.4.6-11.4 5.6-12 12-.6-6.4-5.6-11.4-12-12C6.4 11.4 11.4 6.4 12 0Z"/></svg>',
@@ -33,7 +42,7 @@ svg = svg
   .replace(/<svg[^>]*?(viewBox="[^"]+")[^>]*>/, (_match: string, viewBox: string) => {
     const isCustom = name in custom;
     const stroke = isCustom
-      ? ''
+      ? ' fill="currentColor"'
       : ` fill="none" stroke="currentColor" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round"`;
     return `<svg xmlns="http://www.w3.org/2000/svg" ${viewBox} width="${size}" height="${size}"${stroke} class="icon ${className}" ${a11y}>`;
   });

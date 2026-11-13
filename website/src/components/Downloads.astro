@@ -1,0 +1,95 @@
+---
+import { site } from '../config/site';
+import Heading from './Heading.astro';
+import Icon from './Icon.astro';
+
+type Platform = {
+  id: string;
+  icon: string;
+  iconSize: number;
+  name: string;
+  meta: string;
+  note: string;
+  cta: { small: string; label: string; href: string; file?: string };
+};
+
+const platforms: Platform[] = [
+  {
+    id: 'windows',
+    icon: 'WindowsGlyph',
+    iconSize: 22,
+    name: 'Windows',
+    meta: 'Windows 10 & 11 · x64 installer',
+    note: 'Setup wizard with optional “Start with Windows”. Unsigned for now, so SmartScreen may ask you to confirm.',
+    cta: { small: 'Download for', label: 'Windows', href: site.downloads.windows, file: '.exe' },
+  },
+  {
+    id: 'store',
+    icon: 'MicrosoftLogo',
+    iconSize: 22,
+    name: 'Microsoft Store',
+    meta: 'Windows 10 & 11 · automatic updates',
+    note: 'Signed by Microsoft, installs firewall rules for you and updates itself.',
+    cta: { small: 'Get it from', label: 'Microsoft', href: site.downloads.msStore },
+  },
+  {
+    id: 'mac',
+    icon: 'AppleGlyph',
+    iconSize: 22,
+    name: 'macOS',
+    meta: 'macOS 13 Ventura or later · menu bar app',
+    note: 'Open the DMG and drag ConnectMouse to Applications. Allow Accessibility on first launch.',
+    cta: { small: 'Download for', label: 'macOS', href: site.downloads.mac, file: '.dmg' },
+  },
+  {
+    id: 'android',
+    icon: 'AndroidGlyph',
+    iconSize: 24,
+    name: 'Android',
+    meta: 'Phone app · direct install (APK)',
+    note: 'Not on Google Play yet: download the APK on your phone and allow “Install unknown apps” for your browser.',
+    cta: { small: 'Download APK for', label: 'Android', href: site.downloads.android, file: '.apk' },
+  },
+];
+---
+
+<section class="section downloads" id="download" aria-labelledby="download-title">
+  <div class="container">
+    <div class="split-head">
+      <Heading id="download-title" text={'Download ConnectMouse\nFor *Every Device*'} />
+      <p class="split-head-text reveal">
+        Install the desktop app on the computer you want to control and the phone app on your Android phone.
+        Everything is free and talks only over your own Wi-Fi.
+      </p>
+    </div>
+
+    <ul class="dl-grid">
+      {
+        platforms.map((p, i) => (
+          <li class:list={['dl-card', `dl-${p.id}`, 'reveal']} style={`--d:${i * 0.08}s`}>
+            <span class="dl-icon" aria-hidden="true"><Icon name={p.icon} size={p.iconSize} /></span>
+            <h3 class="dl-name">{p.name}</h3>
+            <p class="dl-meta">{p.meta}</p>
+            <p class="dl-note">{p.note}</p>
+            <a
+              class:list={['dl-btn', `dl-btn-${p.id}`]}
+              href={p.cta.href}
+              target={p.cta.file ? undefined : '_blank'}
+              rel={p.cta.file ? undefined : 'noopener'}
+              data-platform={p.id}
+            >
+              <Icon name={p.icon} size={p.id === 'android' ? 26 : 22} />
+              <span class="dl-btn-text"><small>{p.cta.small}</small>{p.cta.label}</span>
+              {p.cta.file ? <span class="dl-btn-file">{p.cta.file}</span> : <Icon name="ArrowUpRight" size={16} class="dl-btn-trail" />}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+
+    <p class="dl-foot reveal">
+      iPhone app coming later. Release notes, checksums and older versions are on{' '}
+      <a href={site.downloads.releases} target="_blank" rel="noopener">GitHub Releases <Icon name="ArrowUpRight" size={14} /></a>
+    </p>
+  </div>
+</section>

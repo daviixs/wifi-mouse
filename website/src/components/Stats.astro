@@ -33,13 +33,17 @@ import Icon from './Icon.astro';
         <p class="stat-label">macOS &amp; Windows Apps</p>
         <svg class="stat-swoosh" viewBox="0 0 200 160" aria-hidden="true"><path d="M10 150C40 80 70 20 110 30s30 60 40 90 20 40 40 30" fill="none" stroke="currentColor" stroke-width="22" stroke-linecap="round" /></svg>
         <div class="store-badges">
-          <a class="store-badge" href={site.downloads.mac} target="_blank" rel="noopener">
-            <Icon name="Laptop" size={20} />
+          <a class="store-badge" href={site.downloads.mac}>
+            <Icon name="AppleGlyph" size={18} />
             <span><small>Download for</small>macOS</span>
           </a>
-          <a class="store-badge" href={site.downloads.windows} target="_blank" rel="noopener">
+          <a class="store-badge" href={site.downloads.windows}>
             <Icon name="WindowsGlyph" size={18} />
             <span><small>Download for</small>Windows</span>
+          </a>
+          <a class="store-badge" href={site.downloads.msStore} target="_blank" rel="noopener">
+            <Icon name="MicrosoftLogo" size={18} />
+            <span><small>Get it from</small>Microsoft</span>
           </a>
         </div>
       </article>
