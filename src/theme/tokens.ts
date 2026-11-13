@@ -7,7 +7,13 @@ export const COLORS = {
   surfaceGlass: '#111A4A',
   surfaceSubtle: '#0C1438',
   surfaceActive: '#1D2B66',
-  border: 'rgba(130, 155, 255, 0.28)',
+  /*
+   * Android paints a translucent border with a rounded radius as a separate layer over
+   * the card edge (and, with elevation, over the shadow underneath), so it reads as a
+   * second, lighter rim/inner panel. Use the same color pre-blended over `surface`
+   * there; iOS/web keep the translucent original.
+   */
+  border: Platform.OS === 'android' ? '#313E7D' : 'rgba(130, 155, 255, 0.28)',
   text: '#F4F7FF',
   muted: '#A9B6E6',
   primary: '#3D7BFF',
@@ -44,7 +50,18 @@ export const RADIUS = {
   pill: 999,
 } as const;
 
-function softShadow(offsetY: number, blur: number, opacity: number, elevation: number): ViewStyle {
+/*
+ * Shadows are painted only OUTSIDE each surface.
+ *
+ * Android's native `elevation` was the cause of the lighter inner rectangle on every
+ * card: HWUI renders the elevation shadow under the view's whole outline, and React
+ * Native builds that outline as a path whose corner radius includes the border width,
+ * so it never matches the painted background/translucent border on these dark cards.
+ * CSS `boxShadow` (New Architecture, Android 9+) is drawn by OutsetBoxShadowDrawable,
+ * which clips out the surface's own rounded border box, so nothing can show inside a
+ * card, tile, sheet or button. Below Android 9 the shadow is simply omitted.
+ */
+function softShadow(offsetY: number, blur: number, opacity: number): ViewStyle {
   if (Platform.OS === 'ios') {
     return {
       shadowColor: '#000622',
@@ -54,12 +71,10 @@ function softShadow(offsetY: number, blur: number, opacity: number, elevation: n
     };
   }
 
-  if (Platform.OS === 'android') return { elevation };
-
   return { boxShadow: `0px ${offsetY}px ${blur}px rgba(0, 6, 34, ${opacity})` };
 }
 
-function glow(color: string, blur: number, opacity: number, elevation: number): ViewStyle {
+function glow(color: string, blur: number, opacity: number): ViewStyle {
   if (Platform.OS === 'ios') {
     return {
       shadowColor: color,
@@ -68,12 +83,17 @@ function glow(color: string, blur: number, opacity: number, elevation: number): 
       shadowRadius: blur,
     };
   }
-  if (Platform.OS === 'android') return { elevation, shadowColor: color };
-  return { boxShadow: `0px 6px ${blur}px ${color}` };
+  return { boxShadow: `0px 6px ${blur}px ${withAlpha(color, opacity)}` };
+}
+
+/** `#RRGGBB` + alpha -> `rgba(r, g, b, a)` so Android/web glow matches iOS shadowOpacity. */
+function withAlpha(hex: string, alpha: number): string {
+  const value = Number.parseInt(hex.replace('#', ''), 16);
+  return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${alpha})`;
 }
 
 export const SHADOWS = {
-  glow: glow('#2F6BFF', 18, 0.55, 8),
-  card: softShadow(10, 24, 0.45, 6),
-  floating: softShadow(4, 12, 0.35, 3),
+  glow: glow('#2F6BFF', 18, 0.55),
+  card: softShadow(10, 24, 0.45),
+  floating: softShadow(4, 12, 0.35),
 } as const;

@@ -68,3 +68,10 @@ test('declares URL keyboard, Android resize and coherent single card surface (st
   assert.doesNotMatch(card, /LinearGradient/);
   assert.match(card, /backgroundColor: COLORS.surface/);
 });
+
+test('Android surfaces never use native elevation or a translucent border (structural, not native rendering)', () => {
+  const tokens = readFileSync(new URL('../../theme/tokens.ts', import.meta.url), 'utf8');
+  assert.doesNotMatch(tokens, /return \{ elevation/);
+  assert.match(tokens, /border: Platform\.OS === 'android' \? '#[0-9A-F]{6}'/);
+  assert.match(tokens, /boxShadow: `0px \$\{offsetY\}px/);
+});
