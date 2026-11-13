@@ -59,8 +59,11 @@ function Find-Iscc {
     foreach ($view in "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall", "SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall") {
       foreach ($id in "Inno Setup 6_is1", "Inno Setup 7_is1", "Inno Setup 7 (64-bit)_is1") {
         $key = Join-Path "$root\$view" $id
-        $location = (Get-ItemProperty -Path $key -Name InstallLocation -ErrorAction SilentlyContinue).InstallLocation
-        if ($location) { $candidates += Join-Path $location "ISCC.exe" }
+        if (-not (Test-Path -LiteralPath $key)) { continue }
+        $props = Get-ItemProperty -LiteralPath $key -ErrorAction SilentlyContinue
+        if (-not $props) { continue }
+        $prop = $props.PSObject.Properties["InstallLocation"]
+        if ($prop -and $prop.Value) { $candidates += Join-Path $prop.Value "ISCC.exe" }
       }
     }
   }
