@@ -46,7 +46,7 @@ use crate::{
     agent::{self, AgentHandle},
     autostart,
     l10n::{Lang, Strings},
-    model::{AgentMessage, State},
+    model::{AgentMessage, Availability, State},
 };
 
 const CLASS_NAME: *const u16 = w!("RemoteMouseTrayPopup");
@@ -67,12 +67,16 @@ const ID_COPY: i32 = 103;
 const ID_NETWORK: i32 = 104;
 const ID_TOGGLE: i32 = 105;
 const ID_QUIT: i32 = 106;
-const BUTTON_IDS: [i32; 6] = [
+const ID_ALWAYS: i32 = 107;
+const ID_AUTOSTART: i32 = 108;
+const BUTTON_IDS: [i32; 8] = [
     ID_LANGUAGE,
     ID_FIREWALL,
     ID_COPY,
     ID_NETWORK,
     ID_TOGGLE,
+    ID_ALWAYS,
+    ID_AUTOSTART,
     ID_QUIT,
 ];
 
@@ -80,11 +84,13 @@ const MENU_OPEN: usize = 201;
 const MENU_TOGGLE: usize = 202;
 const MENU_QUIT: usize = 203;
 const MENU_AUTOSTART: usize = 204;
+const MENU_ALWAYS: usize = 205;
 const MENU_LANGUAGE: usize = 210; // + index in Lang::ALL
 
 const TIMER_COPIED: usize = 1;
 const TIMER_QUIT: usize = 2;
 const TIMER_ADDRESSES: usize = 3;
+const TIMER_RETRY: usize = 4;
 
 const REG_KEY: *const u16 = w!("Software\\RemoteMouse");
 
@@ -107,7 +113,6 @@ const PRIMARY_LEFT: COLORREF = rgb(26, 77, 179);
 const PRIMARY_RIGHT: COLORREF = rgb(64, 46, 158);
 
 // Segoe MDL2 Assets glyphs (present on Windows 10 and 11).
-const GLYPH_MOUSE: u16 = 0xE962;
 const GLYPH_LAPTOP: u16 = 0xE7F8;
 const GLYPH_WIFI: u16 = 0xE701;
 const GLYPH_COPY: u16 = 0xE8C8;
@@ -152,6 +157,8 @@ enum Style {
     Secondary,
     Link,
     Chip,
+    /// Full-width row: label on the left, on/off switch on the right.
+    Switch(bool),
 }
 
 struct ButtonSpec {
@@ -166,6 +173,7 @@ struct ButtonSpec {
 
 enum Op {
     Card(RECT),
+    /// The app icon (ConnectMouse logo) drawn from the .ico resource.
     Logo(RECT),
     Text {
         rect: RECT,
@@ -180,9 +188,15 @@ enum Op {
 struct App {
     hwnd: HWND,
     icon: HICON,
+    /// Header logo at the panel's DPI (`logo_size` px), loaded on demand.
+    logo: HICON,
+    logo_size: i32,
     taskbar_created: u32,
     lang: Lang,
     state: State,
+    availability: Availability,
+    /// "Iniciar com o Windows", re-read whenever the panel or menu opens.
+    startup: autostart::Status,
     agent: Option<AgentHandle>,
     quitting: bool,
     dpi: u32,
@@ -195,6 +209,7 @@ struct App {
 pub fn run() {
     // Started at sign-in by the Run key (`--autostart`) or the MSIX startup
     // task: go straight to the tray with the server on, no first-run balloon.
+    // "Sempre disponível para parear" also turns the server on at launch.
     let at_logon = autostart::launched_at_logon(std::env::args())
         || (autostart::packaged() && autostart::activated_by_startup_task());
     unsafe {
@@ -272,9 +287,15 @@ pub fn run() {
         let app = App {
             hwnd,
             icon,
+            logo: null_mut(),
+            logo_size: 0,
             taskbar_created: RegisterWindowMessageW(w!("TaskbarCreated")),
             lang: initial_language(),
             state: State::default(),
+            availability: Availability::from_stored(
+                read_registry(w!("AlwaysAvailable")).as_deref(),
+            ),
+            startup: autostart::Status::Unavailable,
             agent: None,
             quitting: false,
             dpi: 96,
@@ -286,11 +307,13 @@ pub fn run() {
         APP.with_borrow_mut(|slot| *slot = Some(app));
         refresh(hwnd);
         add_tray_icon(hwnd);
-        if at_logon {
+        let start = with_app(|app| app.availability.start_on_launch(at_logon)).unwrap_or(at_logon);
+        if start {
             start_server(hwnd);
             refresh(hwnd);
             update_tray_tip(hwnd);
-        } else {
+        }
+        if !at_logon {
             welcome_once(hwnd);
         }
         SetTimer(hwnd, TIMER_ADDRESSES, 5000, None);
@@ -308,6 +331,9 @@ pub fn run() {
             if let Some(app) = slot.take() {
                 for font in app.fonts.values() {
                     DeleteObject(*font);
+                }
+                if !app.logo.is_null() {
+                    DestroyIcon(app.logo);
                 }
             }
         });
@@ -437,6 +463,15 @@ unsafe extern "system" fn window_proc(
 fn command(hwnd: HWND, id: i32) {
     match id {
         ID_TOGGLE => toggle_server(hwnd),
+        ID_ALWAYS => toggle_always(hwnd),
+        ID_AUTOSTART => {
+            if let Some(current) = with_app(|app| app.startup) {
+                toggle_autostart(current);
+                let startup = autostart::status();
+                with_app(|app| app.startup = startup);
+                refresh(hwnd);
+            }
+        }
         ID_COPY => copy_address(hwnd),
         ID_NETWORK => open(w!("ms-settings:network-status"), null()),
         ID_FIREWALL => open(
@@ -456,12 +491,44 @@ fn command(hwnd: HWND, id: i32) {
 
 fn toggle_server(hwnd: HWND) {
     let running = with_app(|app| app.agent.is_some()).unwrap_or(false);
+    unsafe { KillTimer(hwnd, TIMER_RETRY) };
     if running {
+        with_app(|app| app.availability.user_stopped());
         stop_server();
     } else {
+        with_app(|app| app.availability.user_started());
         start_server(hwnd);
     }
     refresh(hwnd);
+}
+
+/// "Sempre disponível para parear": on starts the server right away; off
+/// leaves a running server alone but stops automatic (re)starts.
+fn toggle_always(hwnd: HWND) {
+    let Some((start, value)) = with_app(|app| {
+        let on = !app.availability.always;
+        let start = app.availability.set(on, &app.state);
+        (start, app.availability.stored())
+    }) else {
+        return;
+    };
+    let value: Vec<u16> = value.encode_utf16().chain([0]).collect();
+    unsafe {
+        KillTimer(hwnd, TIMER_RETRY);
+        RegSetKeyValueW(
+            HKEY_CURRENT_USER,
+            REG_KEY,
+            w!("AlwaysAvailable"),
+            REG_SZ,
+            value.as_ptr().cast(),
+            (value.len() * 2) as u32,
+        );
+    }
+    if start {
+        start_server(hwnd);
+    }
+    refresh(hwnd);
+    update_tray_tip(hwnd);
 }
 
 fn start_server(hwnd: HWND) {
@@ -515,12 +582,21 @@ fn drain_agent(hwnd: HWND) {
     };
     let mut finished = None;
     let mut destroy = false;
+    let mut retry = None;
     with_app(|app| {
         for message in messages {
-            if matches!(message, AgentMessage::Stopped(_)) {
+            let stopped = matches!(message, AgentMessage::Stopped(_));
+            let ready = matches!(message, AgentMessage::Ready { .. });
+            if stopped {
                 finished = app.agent.take();
             }
             app.state.apply(message);
+            if ready && app.state.online() {
+                app.availability.ready();
+            }
+            if stopped && !app.quitting {
+                retry = app.availability.retry_after(&app.state);
+            }
         }
         destroy = app.quitting && app.agent.is_none();
     });
@@ -531,11 +607,15 @@ fn drain_agent(hwnd: HWND) {
         unsafe { DestroyWindow(hwnd) };
         return;
     }
+    if let Some(delay) = retry {
+        unsafe { SetTimer(hwnd, TIMER_RETRY, delay, None) };
+    }
     refresh(hwnd);
     update_tray_tip(hwnd);
 }
 
 fn quit(hwnd: HWND) {
+    unsafe { KillTimer(hwnd, TIMER_RETRY) };
     let wait = with_app(|app| {
         app.quitting = true;
         if app.agent.is_some() {
@@ -570,11 +650,32 @@ fn timer(hwnd: HWND, id: usize) {
         TIMER_QUIT => unsafe {
             DestroyWindow(hwnd);
         },
+        TIMER_RETRY => {
+            unsafe { KillTimer(hwnd, TIMER_RETRY) };
+            // Still wanted? (The user may have stopped it or turned it off.)
+            let wanted = with_app(|app| {
+                let mut probe = app.availability;
+                !app.quitting && app.agent.is_none() && probe.retry_after(&app.state).is_some()
+            })
+            .unwrap_or(false);
+            if wanted {
+                start_server(hwnd);
+                refresh(hwnd);
+                update_tray_tip(hwnd);
+            }
+        }
         TIMER_ADDRESSES => {
             let online = with_app(|app| app.state.online()).unwrap_or(false);
             if online {
                 let addresses = agent::lan_addresses();
                 if with_app(|app| app.state.update_addresses(addresses)).unwrap_or(false) {
+                    // Wi-Fi came up after mDNS failed: re-announce so the
+                    // phone finds the PC again (restarted via TIMER_RETRY).
+                    if with_app(|app| app.availability.restart_for_discovery(&app.state))
+                        .unwrap_or(false)
+                    {
+                        stop_server();
+                    }
                     refresh(hwnd);
                     update_tray_tip(hwnd);
                 }
@@ -755,9 +856,14 @@ fn welcome_once(hwnd: HWND) {
 
 fn show_menu(hwnd: HWND, x: i32, y: i32) {
     hide_panel(hwnd);
-    let Some((lang, running, busy)) =
-        with_app(|app| (app.lang, app.agent.is_some(), app.state.busy()))
-    else {
+    let Some((lang, running, busy, always)) = with_app(|app| {
+        (
+            app.lang,
+            app.agent.is_some(),
+            app.state.busy(),
+            app.availability.always,
+        )
+    }) else {
         return;
     };
     let s = lang.strings();
@@ -812,6 +918,8 @@ fn show_menu(hwnd: HWND, x: i32, y: i32) {
             };
             append(menu, flags, MENU_AUTOSTART, label);
         }
+        let checked = if always { MF_CHECKED } else { MF_UNCHECKED };
+        append(menu, MF_STRING | checked, MENU_ALWAYS, s.option_always);
         AppendMenuW(menu, MF_SEPARATOR, 0, null());
         append(menu, MF_STRING, MENU_QUIT, s.button_quit);
         SetMenuDefaultItem(menu, MENU_OPEN as u32, 0);
@@ -833,6 +941,7 @@ fn show_menu(hwnd: HWND, x: i32, y: i32) {
             MENU_TOGGLE => toggle_server(hwnd),
             MENU_QUIT => quit(hwnd),
             MENU_AUTOSTART => toggle_autostart(startup),
+            MENU_ALWAYS => toggle_always(hwnd),
             index if (MENU_LANGUAGE..MENU_LANGUAGE + Lang::ALL.len()).contains(&index) => {
                 set_language(hwnd, Lang::ALL[index - MENU_LANGUAGE]);
             }
@@ -880,6 +989,8 @@ fn hide_panel(hwnd: HWND) {
 }
 
 fn show_panel(hwnd: HWND) {
+    let startup = autostart::status();
+    with_app(|app| app.startup = startup);
     let (anchor, info, dpi) = anchor_monitor(hwnd);
     set_dpi(dpi);
     refresh(hwnd);
@@ -1035,14 +1146,24 @@ fn refresh(hwnd: HWND) {
     }) else {
         return;
     };
+    load_logo();
     let size = with_app(|app| app.size).unwrap_or((WIDTH, 600));
     unsafe {
+        for id in BUTTON_IDS {
+            // Rows left out of the layout (e.g. autostart unavailable).
+            if !updates.iter().any(|(shown, ..)| *shown == id)
+                && let Some(child) = button(hwnd, id)
+            {
+                ShowWindow(child, SW_HIDE);
+            }
+        }
         for (id, rect, enabled, label) in updates {
             if let Some(child) = button(hwnd, id) {
                 // Window text is the accessible name read by Narrator.
                 let text: Vec<u16> = label.encode_utf16().chain([0]).collect();
                 SetWindowTextW(child, text.as_ptr());
                 EnableWindow(child, enabled as i32);
+                ShowWindow(child, SW_SHOWNA);
                 SetWindowPos(
                     child,
                     null_mut(),
@@ -1160,10 +1281,10 @@ fn layout(app: &mut App) {
             rect: rect(width - pad - px(66), y + px(4), px(66), px(28)),
         },
     );
-    y += px(36) + px(16);
+    y += px(36) + px(12);
 
     // Illustration card with the status badge.
-    let hero = rect(pad, y, inner, px(124));
+    let hero = rect(pad, y, inner, px(84));
     ops.push(Op::Card(hero));
     text(
         &mut ops,
@@ -1177,7 +1298,7 @@ fn layout(app: &mut App) {
         let size = px(30);
         let badge = rect(
             hero.left + inner / 2 + px(40),
-            hero.top + px(20),
+            hero.top + px(12),
             size,
             size,
         );
@@ -1196,7 +1317,7 @@ fn layout(app: &mut App) {
             DT_CENTER | DT_SINGLELINE | DT_VCENTER,
         );
     }
-    y = hero.bottom + px(16);
+    y = hero.bottom + px(12);
 
     // Title and detail.
     let title = wide(state.title(s));
@@ -1441,7 +1562,42 @@ fn layout(app: &mut App) {
             rect: rect(pad, y, inner, px(46)),
         },
     );
-    y += px(46) + px(14);
+    y += px(46) + px(10);
+
+    // Options card: "Sempre disponível para parear" and "Iniciar com o Windows".
+    let card_top = y;
+    let switch_pad = px(3);
+    let switch_row = px(30);
+    y += switch_pad;
+    let mut switches = vec![(ID_ALWAYS, s.option_always, app.availability.always)];
+    if app.startup != autostart::Status::Unavailable {
+        switches.push((ID_AUTOSTART, s.menu_autostart, app.startup.checked()));
+    }
+    for (id, label, on) in switches {
+        buttons.insert(
+            id,
+            ButtonSpec {
+                style: Style::Switch(on),
+                glyph: None,
+                label: label.to_owned(),
+                enabled: id != ID_AUTOSTART || app.startup.enabled(),
+                backdrop: None,
+                rect: rect(pad + px(4), y, inner - px(8), switch_row),
+            },
+        );
+        y += switch_row;
+    }
+    y += switch_pad;
+    let card = rect(pad, card_top, inner, y - card_top);
+    ops.insert(0, Op::Card(card));
+    let height = (card.bottom - card.top).max(1) as f32;
+    let at = |y: i32| mix(CARD_TOP, CARD_BOTTOM, (y - card.top) as f32 / height);
+    for id in [ID_ALWAYS, ID_AUTOSTART] {
+        if let Some(row) = buttons.get_mut(&id) {
+            row.backdrop = Some((at(row.rect.top), at(row.rect.bottom)));
+        }
+    }
+    y += px(14);
 
     let help = wide(s.connection_help);
     let height = measure(&help, Font::Small, inner, center);
@@ -1632,16 +1788,21 @@ fn paint(hwnd: HWND) {
                         Some(BORDER),
                     ),
                     Op::Logo(rect) => {
-                        rounded(buffer, *rect, scale(11, app.dpi), CYAN, BLUE, true, None);
-                        let glyph = [GLYPH_MOUSE];
-                        draw_text(
-                            buffer,
-                            app.fonts[&Font::Icon],
-                            &glyph,
-                            *rect,
-                            TEXT,
-                            DT_CENTER | DT_SINGLELINE | DT_VCENTER,
-                        );
+                        if app.logo.is_null() {
+                            rounded(buffer, *rect, scale(11, app.dpi), CYAN, BLUE, true, None);
+                        } else {
+                            DrawIconEx(
+                                buffer,
+                                rect.left,
+                                rect.top,
+                                app.logo,
+                                rect.right - rect.left,
+                                rect.bottom - rect.top,
+                                0,
+                                null_mut(),
+                                DI_NORMAL,
+                            );
+                        }
                     }
                     Op::Dot(rect, color) => {
                         let brush = CreateSolidBrush(*color);
@@ -1681,6 +1842,94 @@ fn paint(hwnd: HWND) {
         DeleteObject(bitmap);
         DeleteDC(buffer);
         EndPaint(hwnd, &ps);
+    }
+}
+
+/// iOS/Windows 11-style switch at the right edge of `row`; returns the x
+/// where the label must end.
+fn draw_switch(hdc: HDC, row: RECT, on: bool, disabled: bool, pressed: bool, dpi: u32) -> i32 {
+    let (track_w, track_h) = (scale(38, dpi), scale(22, dpi));
+    let right = row.right - scale(11, dpi);
+    let top = (row.top + row.bottom - track_h) / 2;
+    let track = RECT {
+        left: right - track_w,
+        top,
+        right,
+        bottom: top + track_h,
+    };
+    let fade = |color: COLORREF| {
+        let color = if pressed {
+            mix(color, BG_BOTTOM, 0.3)
+        } else {
+            color
+        };
+        if disabled {
+            mix(color, BG_BOTTOM, 0.5)
+        } else {
+            color
+        }
+    };
+    if on {
+        rounded(hdc, track, track_h, fade(BLUE), fade(CYAN), true, None);
+    } else {
+        rounded(
+            hdc,
+            track,
+            track_h,
+            fade(BG_BOTTOM),
+            fade(BG_BOTTOM),
+            false,
+            Some(fade(BORDER)),
+        );
+    }
+    let inset = scale(3, dpi);
+    let knob = track_h - 2 * inset;
+    let left = if on {
+        track.right - inset - knob
+    } else {
+        track.left + inset
+    };
+    let color = fade(if on { TEXT } else { MUTED });
+    unsafe {
+        let brush = CreateSolidBrush(color);
+        let pen = CreatePen(PS_SOLID, 1, color);
+        let old_brush = SelectObject(hdc, brush);
+        let old_pen = SelectObject(hdc, pen);
+        Ellipse(hdc, left, top + inset, left + knob, top + inset + knob);
+        SelectObject(hdc, old_brush);
+        SelectObject(hdc, old_pen);
+        DeleteObject(brush);
+        DeleteObject(pen);
+    }
+    track.left - scale(10, dpi)
+}
+
+/// Loads the header logo from icon resource 1 at the current panel size so
+/// Windows picks the closest frame of RemoteMouse.ico instead of stretching.
+fn load_logo() {
+    let Some((size, current, old)) = with_app(|app| (scale(36, app.dpi), app.logo_size, app.logo))
+    else {
+        return;
+    };
+    if size == current && !old.is_null() {
+        return;
+    }
+    unsafe {
+        let logo = LoadImageW(
+            GetModuleHandleW(null()),
+            std::ptr::without_provenance::<u16>(1),
+            IMAGE_ICON,
+            size,
+            size,
+            LR_DEFAULTCOLOR,
+        ) as HICON;
+        with_app(|app| {
+            app.logo = logo;
+            app.logo_size = size;
+        });
+        if !old.is_null() {
+            DestroyIcon(old);
+        }
     }
 }
 
@@ -1743,11 +1992,15 @@ fn draw_button(item: &DRAWITEMSTRUCT) {
                     false,
                     border,
                 ),
-                Style::Link => {
+                Style::Link | Style::Switch(_) => {
                     if focused {
                         rounded(buffer, local, radius, top, bottom, false, Some(CYAN));
                     }
                 }
+            }
+            let mut label_right = width;
+            if let Style::Switch(on) = spec.style {
+                label_right = draw_switch(buffer, local, on, disabled, pressed, app.dpi);
             }
             let color = if disabled {
                 mix(MUTED, BG_BOTTOM, 0.35)
@@ -1760,7 +2013,7 @@ fn draw_button(item: &DRAWITEMSTRUCT) {
             } else {
                 TEXT
             };
-            let label_font = if spec.style == Style::Primary {
+            let label_font = if matches!(spec.style, Style::Primary | Style::Switch(_)) {
                 Font::ButtonStrong
             } else {
                 Font::Button
@@ -1791,7 +2044,9 @@ fn draw_button(item: &DRAWITEMSTRUCT) {
             };
             let label_width = measure_width(buffer, app.fonts[&label_font], &label);
             let total = glyph_width + gap + label_width;
-            let (mut x, align) = if spec.style == Style::Link && item.CtlID as i32 == ID_FIREWALL {
+            let (mut x, align) = if matches!(spec.style, Style::Switch(_)) {
+                (scale(11, app.dpi), DT_LEFT)
+            } else if spec.style == Style::Link && item.CtlID as i32 == ID_FIREWALL {
                 (scale(2, app.dpi), DT_LEFT)
             } else if spec.style == Style::Link {
                 (width - total - scale(2, app.dpi), DT_LEFT)
@@ -1823,7 +2078,7 @@ fn draw_button(item: &DRAWITEMSTRUCT) {
                     RECT {
                         left: x,
                         top: 0,
-                        right: width,
+                        right: label_right,
                         bottom: height,
                     },
                     color,

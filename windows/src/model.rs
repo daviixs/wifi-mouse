@@ -226,6 +226,99 @@ impl State {
     }
 }
 
+/// Delays before restarting a server that stopped on its own (port taken by
+/// another program, network adapter gone, crash). The last value repeats.
+pub const RETRY_DELAYS_MS: [u32; 5] = [1_000, 3_000, 10_000, 30_000, 60_000];
+
+/// "Sempre disponível para parear": keeps the server listening (and announced
+/// via mDNS) whenever the app runs, so the phone can pair at any time without
+/// opening the panel. Persisted as `AlwaysAvailable` (`"1"`/`"0"`) next to
+/// `Language` in `HKCU\Software\RemoteMouse`; on when the value is missing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Availability {
+    pub always: bool,
+    /// The user pressed "Stop server": respected until they start it again
+    /// or the app restarts.
+    paused: bool,
+    attempts: usize,
+}
+
+impl Availability {
+    pub fn new(always: bool) -> Self {
+        Self {
+            always,
+            paused: false,
+            attempts: 0,
+        }
+    }
+
+    /// Reads the stored registry value; anything but `"0"` means on.
+    pub fn from_stored(value: Option<&str>) -> Self {
+        Self::new(value.map(str::trim) != Some("0"))
+    }
+
+    pub fn stored(self) -> &'static str {
+        if self.always { "1" } else { "0" }
+    }
+
+    /// Turning it on also lifts a manual pause; returns whether the server
+    /// should be started now.
+    pub fn set(&mut self, always: bool, state: &State) -> bool {
+        self.always = always;
+        self.attempts = 0;
+        if always {
+            self.paused = false;
+        }
+        self.wants_server(state)
+    }
+
+    /// Whether the server starts when the app launches. A sign-in launch
+    /// ("Iniciar com o Windows") always starts it, as before.
+    pub fn start_on_launch(self, at_logon: bool) -> bool {
+        self.always || at_logon
+    }
+
+    pub fn user_started(&mut self) {
+        self.paused = false;
+        self.attempts = 0;
+    }
+
+    pub fn user_stopped(&mut self) {
+        self.paused = true;
+    }
+
+    pub fn ready(&mut self) {
+        self.attempts = 0;
+    }
+
+    fn wants_server(self, state: &State) -> bool {
+        self.always && !self.paused && matches!(state.phase, Phase::Stopped | Phase::Failed)
+    }
+
+    /// After the server stopped without the user asking: how long to wait
+    /// before starting it again, or `None` to leave it off.
+    pub fn retry_after(&mut self, state: &State) -> Option<u32> {
+        if !self.wants_server(state) {
+            return None;
+        }
+        let delay = RETRY_DELAYS_MS[self.attempts.min(RETRY_DELAYS_MS.len() - 1)];
+        self.attempts += 1;
+        Some(delay)
+    }
+
+    /// Whether a running server should be restarted after the LAN addresses
+    /// changed: only when mDNS could not start and no phone is connected, so
+    /// discovery comes back once Wi-Fi is up (e.g. right after sign-in).
+    pub fn restart_for_discovery(self, state: &State) -> bool {
+        self.always
+            && !self.paused
+            && state.online()
+            && !state.mdns
+            && !state.client_connected
+            && !state.addresses.is_empty()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -327,5 +420,73 @@ mod tests {
         assert!(!state.update_addresses(state.addresses.clone()));
         assert!(state.update_addresses(vec![Ipv4Addr::new(172, 16, 0, 2)]));
         assert_eq!(state.address().as_deref(), Some("172.16.0.2:8765"));
+    }
+
+    #[test]
+    fn always_available_defaults_on_and_persists() {
+        assert!(Availability::from_stored(None).always);
+        assert!(Availability::from_stored(Some("1")).always);
+        assert!(!Availability::from_stored(Some("0")).always);
+        assert!(!Availability::from_stored(Some(" 0 ")).always);
+        assert_eq!(Availability::new(true).stored(), "1");
+        assert_eq!(Availability::new(false).stored(), "0");
+        assert!(Availability::new(true).start_on_launch(false));
+        assert!(Availability::new(false).start_on_launch(true));
+        assert!(!Availability::new(false).start_on_launch(false));
+    }
+
+    #[test]
+    fn always_available_retries_with_backoff_until_ready() {
+        let mut availability = Availability::new(true);
+        let mut state = State::default();
+        assert!(state.start());
+        state.apply(AgentMessage::Stopped(Some(Failure::PortInUse)));
+        let delays: Vec<_> = (0..7)
+            .map(|_| availability.retry_after(&state).unwrap())
+            .collect();
+        assert_eq!(
+            delays,
+            [1_000, 3_000, 10_000, 30_000, 60_000, 60_000, 60_000]
+        );
+        availability.ready();
+        assert_eq!(availability.retry_after(&state), Some(1_000));
+        ready(&mut state);
+        assert_eq!(availability.retry_after(&state), None, "running: no retry");
+    }
+
+    #[test]
+    fn manual_stop_pauses_until_started_or_turned_on_again() {
+        let mut availability = Availability::new(true);
+        let mut state = State::default();
+        ready(&mut state);
+        availability.user_stopped();
+        assert!(state.stop());
+        state.apply(AgentMessage::Stopped(None));
+        assert_eq!(availability.retry_after(&state), None);
+        availability.user_started();
+        assert_eq!(availability.retry_after(&state), Some(1_000));
+        availability.user_stopped();
+        assert!(availability.set(true, &state), "turning on starts it now");
+        assert!(!availability.set(false, &state));
+        assert_eq!(availability.retry_after(&state), None, "off: never retry");
+    }
+
+    #[test]
+    fn discovery_restart_only_when_mdns_failed_and_phone_idle() {
+        let availability = Availability::new(true);
+        let mut state = State::default();
+        ready(&mut state);
+        assert!(!availability.restart_for_discovery(&state), "mDNS is up");
+        state.mdns = false;
+        assert!(availability.restart_for_discovery(&state));
+        state.apply(AgentMessage::Client(true));
+        assert!(!availability.restart_for_discovery(&state), "phone in use");
+        state.apply(AgentMessage::Client(false));
+        assert!(!Availability::new(false).restart_for_discovery(&state));
+        state.addresses.clear();
+        assert!(
+            !availability.restart_for_discovery(&state),
+            "still no network"
+        );
     }
 }

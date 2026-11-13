@@ -135,6 +135,7 @@ pub struct Strings {
     pub firewall_running: &'static str,
     pub firewall_blocked: &'static str,
     pub welcome_body: &'static str,
+    pub option_always: &'static str,
 }
 
 pub fn fill(template: &str, value: impl std::fmt::Display) -> String {
@@ -182,6 +183,7 @@ pub static PT_BR: Strings = Strings {
     firewall_running: "Se o celular não encontrar o PC, permita o Remote Mouse em redes privadas no Firewall e confira se o Wi-Fi está como rede privada.",
     firewall_blocked: "A porta não pôde ser aberta. Libere o Remote Mouse no Firewall ou feche o programa que usa a porta.",
     welcome_body: "O Remote Mouse está na área de notificação. Clique no ícone do mouse para abrir.",
+    option_always: "Sempre disponível para parear",
 };
 
 pub static EN: Strings = Strings {
@@ -225,6 +227,7 @@ pub static EN: Strings = Strings {
     firewall_running: "If your phone cannot find this PC, allow Remote Mouse on private networks in the Firewall and make sure your Wi-Fi is set as a private network.",
     firewall_blocked: "The port could not be opened. Allow Remote Mouse in the Firewall or close the program using the port.",
     welcome_body: "Remote Mouse is in the notification area. Click the mouse icon to open it.",
+    option_always: "Always available for pairing",
 };
 
 pub static ES: Strings = Strings {
@@ -268,6 +271,7 @@ pub static ES: Strings = Strings {
     firewall_running: "Si tu teléfono no encuentra este PC, permite Remote Mouse en redes privadas en el Firewall y comprueba que el Wi-Fi sea una red privada.",
     firewall_blocked: "No se pudo abrir el puerto. Permite Remote Mouse en el Firewall o cierra el programa que usa el puerto.",
     welcome_body: "Remote Mouse está en el área de notificación. Haz clic en el icono del ratón para abrirlo.",
+    option_always: "Siempre disponible para emparejar",
 };
 
 #[cfg(test)]
@@ -316,6 +320,7 @@ mod tests {
             s.firewall_running,
             s.firewall_blocked,
             s.welcome_body,
+            s.option_always,
         ]
     }
 
@@ -374,5 +379,12 @@ mod tests {
             let s = lang.strings();
             assert!(s.menu_autostart_settings.starts_with(s.menu_autostart));
         }
+    }
+
+    #[test]
+    fn always_available_option_is_translated() {
+        assert_eq!(PT_BR.option_always, "Sempre disponível para parear");
+        assert_eq!(EN.option_always, "Always available for pairing");
+        assert_eq!(ES.option_always, "Siempre disponible para emparejar");
     }
 }

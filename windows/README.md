@@ -3,11 +3,11 @@
 App **nativo Win32 em Rust** que fica na **área de notificação** (ao lado do relógio), equivalente ao app de barra de menus do macOS em [`macos/`](../macos/README.md). Não usa Tauri, Electron nem webview.
 
 - **Clique esquerdo** no ícone do mouse abre/fecha o painel. **Esc** ou clicar fora fecha.
-- **Clique direito** abre o menu **Abrir · Iniciar/Parar servidor · Idioma · Iniciar com o Windows · Sair**.
-- Painel: status Online/Offline, nome do PC, endereços `IP:8765` (sem `ws://` e sem separador de milhar), **Copiar endereço** (copia o primeiro, ex. `192.168.0.12:8765`), configurações de rede, Firewall do Windows, **Iniciar/Parar servidor** e **Sair**.
+- **Clique direito** abre o menu **Abrir · Iniciar/Parar servidor · Idioma · Iniciar com o Windows · Sempre disponível para parear · Sair**.
+- Painel: status Online/Offline, nome do PC, endereços `IP:8765` (sem `ws://` e sem separador de milhar), **Copiar endereço** (copia o primeiro, ex. `192.168.0.12:8765`), configurações de rede, Firewall do Windows, **Iniciar/Parar servidor**, as chaves **Sempre disponível para parear** e **Iniciar com o Windows**, e **Sair**.
 - Idiomas: pt-BR (automático em qualquer Windows em português), inglês e espanhol; fallback em inglês. O botão **PT/EN/ES** no topo do painel (ou o menu **Idioma**) troca e salva a escolha em `HKCU\Software\RemoteMouse`.
 - Uma única cópia por usuário: abrir de novo apenas mostra o painel da cópia em execução.
-- O servidor só inicia quando você clica em **Iniciar servidor** (igual ao macOS). A exceção é quando o app abre sozinho com o Windows (veja [Iniciar com o Windows](#iniciar-com-o-windows)): aí ele já liga o servidor e fica só no ícone da bandeja.
+- Com **Sempre disponível para parear** ligado (padrão), o servidor liga assim que o app abre e o celular pode encontrar e conectar no PC a qualquer momento, com o painel fechado (veja [Sempre disponível para parear](#sempre-disponível-para-parear)). Desligado, o servidor só inicia quando você clica em **Iniciar servidor** (igual ao macOS), exceto quando o app abre sozinho com o Windows.
 
 ## Arquitetura
 
@@ -93,7 +93,18 @@ No menu do botão direito do ícone: **Iniciar com o Windows** (marcado = ligado
 | `.exe` (instalador ou solto) | Valor `ConnectMouse` em `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` com `"<caminho>\RemoteMouse.exe" --autostart`. É o mesmo valor que a caixa do instalador grava. Se você desligar em **Configurações → Aplicativos → Inicialização** (ou no Gerenciador de Tarefas), o menu mostra desmarcado; marcar de novo reativa. |
 | MSIX / Microsoft Store | Apps empacotados ignoram a chave `Run`. O `AppxManifest.xml` declara uma tarefa `windows.startupTask` (`TaskId="ConnectMouseStartup"`, começa desligada) e o app usa a API WinRT `StartupTask`. Se o usuário desligou em **Configurações → Aplicativos → Inicialização**, o Windows não deixa o app religar sozinho: o menu vira **"Iniciar com o Windows (ativar em Configurações)…"** e abre essa página. Se uma política da empresa forçar ligado/desligado, o item fica cinza. |
 
-Código: `windows/src/autostart.rs` (lógica testada com `cargo test`) e o item do menu em `windows/src/ui.rs`.
+Código: `windows/src/autostart.rs` (lógica testada com `cargo test`) e o item do menu em `windows/src/ui.rs`. A mesma opção aparece como chave no painel.
+
+## Sempre disponível para parear
+
+Chave no painel (e item marcável no menu do botão direito), **ligada por padrão**, salva como `AlwaysAvailable` (`1`/`0`) em `HKCU\Software\RemoteMouse`.
+
+- **Ligada:** o servidor (WebSocket na porta 8765 + anúncio mDNS) liga sempre que o app abre, inclusive no login. Ele continua aceitando o celular com o painel fechado, sem clicar em nada e sem tempo limite: quando um celular desconecta, o próximo pode conectar na hora. Se o servidor cair sozinho (porta ocupada, rede trocada, erro), o app tenta religar após 1 s, 3 s, 10 s, 30 s e depois a cada 60 s. Se o mDNS não conseguiu iniciar (ex.: Wi-Fi ainda não conectado no login), o servidor é reiniciado quando o PC ganha um IP novo, para o celular voltar a achar o PC automaticamente.
+- **Parar servidor** com a opção ligada pausa até você clicar em **Iniciar servidor** ou abrir o app de novo.
+- **Desligada:** não para um servidor já ligado; só deixa de ligar/religar sozinho.
+- Junto com **Iniciar com o Windows**, o PC fica pronto para o celular logo após o login, só com o ícone na bandeja.
+
+Lógica em `windows/src/model.rs` (`Availability`, testada com `cargo test`).
 
 ## Firewall do Windows e porta 8765
 
