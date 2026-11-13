@@ -111,7 +111,7 @@ Código: `windows/src/autostart.rs` (lógica testada com `cargo test`) e o item 
 
 ## Pacote MSIX (teste local)
 
-Os logotipos em `windows/packaging/Assets` e o ícone `windows/resources/RemoteMouse.ico` são gerados a partir de `assets/images/icon.png` com `python3 windows/scripts/generate-assets.py` (já versionados, não precisa rodar).
+Os logotipos em `windows/packaging/Assets` e o ícone `windows/resources/RemoteMouse.ico` (e as imagens do assistente em `windows/installer/Wizard*.png`) são gerados a partir da logo do ConnectMouse (`website/public/favicon.svg`) com `python3 windows/scripts/generate-assets.py` (requer `pip install cairosvg pillow`; já versionados, não precisa rodar).
 
 ```powershell
 # Se o PowerShell bloquear scripts: Set-ExecutionPolicy -Scope Process Bypass

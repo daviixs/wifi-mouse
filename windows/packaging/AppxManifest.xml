@@ -54,7 +54,7 @@
           Square71x71Logo="Assets\SmallTile.png"
           Square310x310Logo="Assets\LargeTile.png"
           ShortName="__SHORT_NAME__" />
-        <uap:SplashScreen Image="Assets\SplashScreen.png" BackgroundColor="#101211" />
+        <uap:SplashScreen Image="Assets\SplashScreen.png" BackgroundColor="#0031F4" />
       </uap:VisualElements>
       <Extensions>
         <!--

@@ -78,6 +78,7 @@ MinVersion=10.0.17763
 OutputDir=..\dist
 SetupIconFile=..\resources\RemoteMouse.ico
 WizardSmallImageFile=WizardSmallImage-55.png,WizardSmallImage-69.png,WizardSmallImage-83.png,WizardSmallImage-110.png
+WizardImageFile=WizardImage-164.png,WizardImage-205.png,WizardImage-246.png,WizardImage-328.png
 WizardStyle=modern
 UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}
