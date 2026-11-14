@@ -8,7 +8,6 @@ import android.os.Handler
 import android.os.Looper
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
-import java.net.Inet4Address
 
 /**
  * DNS-SD browsing with the platform NsdManager (backed by the system mDNS
@@ -160,7 +159,7 @@ class ServiceDiscoveryModule : Module() {
       "onServiceFound",
       mapOf(
         "name" to info.serviceName,
-        "host" to (info.host?.let { if (it is Inet4Address) it.hostAddress else it.hostName } ?: ""),
+        "host" to (info.host?.hostAddress ?: ""),
         "port" to info.port,
         "addresses" to addresses,
         "txt" to txt,
