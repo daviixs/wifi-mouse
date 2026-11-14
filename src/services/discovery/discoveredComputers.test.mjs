@@ -116,3 +116,10 @@ test('moves the last connected computer to the top', () => {
     ['a', 'b'],
   );
 });
+
+test('upsertComputer keeps the same list when a repeated resolve changes nothing', () => {
+  const a = parseDiscoveredService(raw());
+  const list = upsertComputer([], a);
+  assert.equal(upsertComputer(list, { ...a }), list);
+  assert.notEqual(upsertComputer(list, { ...a, port: 9000 }), list);
+});

@@ -67,11 +67,27 @@ export function parseDiscoveredService(raw: RawDiscoveredService): DiscoveredCom
   return { id, name, ip, port, os: parseOs(txt.os), version: txt.version?.trim() || null };
 }
 
-/** Inserts or replaces a computer (dedup by instance name, then by IP). */
+function sameComputer(a: DiscoveredComputer, b: DiscoveredComputer): boolean {
+  return (
+    a.id === b.id &&
+    a.name === b.name &&
+    a.ip === b.ip &&
+    a.port === b.port &&
+    a.os === b.os &&
+    a.version === b.version
+  );
+}
+
+/**
+ * Inserts or replaces a computer (dedup by instance name, then by IP). Returns the same
+ * list when nothing changed, so repeated NSD resolves of one computer don't re-render.
+ */
 export function upsertComputer(
-  list: readonly DiscoveredComputer[],
+  list: DiscoveredComputer[],
   computer: DiscoveredComputer,
 ): DiscoveredComputer[] {
+  const matches = list.filter((item) => item.id === computer.id || item.ip === computer.ip);
+  if (matches.length === 1 && sameComputer(matches[0], computer)) return list;
   const rest = list.filter((item) => item.id !== computer.id && item.ip !== computer.ip);
   return sortComputers([...rest, computer]);
 }

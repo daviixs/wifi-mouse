@@ -1,0 +1,7 @@
+{
+  "name": "low-latency-socket",
+  "version": "0.1.0",
+  "description": "Android: disables Nagle (TCP_NODELAY) on React Native WebSocket connections so small touchpad frames are sent immediately (Remote Mouse).",
+  "license": "MIT",
+  "private": true
+}

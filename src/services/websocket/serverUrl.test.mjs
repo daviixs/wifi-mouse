@@ -69,9 +69,12 @@ test('declares URL keyboard, Android resize and coherent single card surface (st
   assert.match(card, /backgroundColor: COLORS.surface/);
 });
 
-test('Android surfaces never use native elevation or a translucent border (structural, not native rendering)', () => {
+test('Android surfaces use no elevation, no blurred boxShadow and an opaque border (structural, not native rendering)', () => {
   const tokens = readFileSync(new URL('../../theme/tokens.ts', import.meta.url), 'utf8');
   assert.doesNotMatch(tokens, /return \{ elevation/);
   assert.match(tokens, /border: Platform\.OS === 'android' \? '#[0-9A-F]{6}'/);
   assert.match(tokens, /boxShadow: `0px \$\{offsetY\}px/);
+  // Android blurred boxShadow (OutsetBoxShadowDrawable) lagged/crashed the app: flat there.
+  assert.equal(tokens.match(/if \(Platform\.OS === 'android'\) return \{\};/g)?.length, 2);
+  assert.doesNotMatch(tokens, /elevation:/);
 });

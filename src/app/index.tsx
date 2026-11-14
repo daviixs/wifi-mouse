@@ -12,7 +12,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useIsFocused } from 'expo-router';
 import { Laptop, Wifi } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -70,7 +70,11 @@ export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const heroWidth = Math.min(width * 0.78, 340);
   const [lastComputer, setLastComputer] = useState<LastComputer | null>(null);
-  const discovery = useComputerDiscovery();
+  // Browse (NSD + Wi-Fi multicast lock) only while this screen is visible; it stays
+  // mounted under Conectado/Touchpad, where the mDNS traffic and re-renders only cost
+  // Wi-Fi latency and battery.
+  const isFocused = useIsFocused();
+  const discovery = useComputerDiscovery(isFocused);
   const computers = withLastComputerFirst(discovery.computers, lastComputer);
 
   useEffect(() => {

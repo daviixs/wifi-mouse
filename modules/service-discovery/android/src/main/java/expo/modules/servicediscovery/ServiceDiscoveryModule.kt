@@ -23,7 +23,7 @@ class ServiceDiscoveryModule : Module() {
   private var multicastLock: WifiManager.MulticastLock? = null
   private val resolveQueue = ArrayDeque<NsdServiceInfo>()
   private var resolving = false
-  private var generation = 0
+  @Volatile private var generation = 0
 
   override fun definition() = ModuleDefinition {
     Name("ServiceDiscovery")
@@ -34,7 +34,12 @@ class ServiceDiscoveryModule : Module() {
 
     Function("stop") { main.post { stop() } }
 
-    OnDestroy { main.post { stop() } }
+    OnDestroy {
+      // Invalidate callbacks already queued on the main looper before stop() runs, so
+      // nothing is emitted into a torn-down JS runtime (reload / activity recreation).
+      generation++
+      main.post { stop() }
+    }
   }
 
   private val context: Context?
@@ -60,7 +65,7 @@ class ServiceDiscoveryModule : Module() {
       }
       override fun onServiceLost(info: NsdServiceInfo) {
         main.post {
-          if (current == generation) sendEvent("onServiceLost", mapOf("name" to info.serviceName))
+          if (current == generation) safeSend("onServiceLost", mapOf("name" to info.serviceName))
         }
       }
     }
@@ -151,7 +156,7 @@ class ServiceDiscoveryModule : Module() {
     info.attributes?.forEach { (key, value) ->
       txt[key] = value?.let { String(it, Charsets.UTF_8) } ?: ""
     }
-    sendEvent(
+    safeSend(
       "onServiceFound",
       mapOf(
         "name" to info.serviceName,
@@ -164,6 +169,14 @@ class ServiceDiscoveryModule : Module() {
   }
 
   private fun emitError(message: String) {
-    sendEvent("onError", mapOf("message" to message))
+    safeSend("onError", mapOf("message" to message))
+  }
+
+  /** Discovery is best effort: never let an event into a dead JS runtime crash the app. */
+  private fun safeSend(name: String, body: Map<String, Any?>) {
+    try {
+      sendEvent(name, body)
+    } catch (_: Throwable) {
+    }
   }
 }
