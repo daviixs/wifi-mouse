@@ -214,9 +214,16 @@ h1, h2, h3, h4, h5 { color: var(--c-dark); font-weight: 400; }
 .marquee-track { display: flex; width: max-content; gap: 64px; animation: marquee 32s linear infinite; }
 .marquee:hover .marquee-track { animation-play-state: paused; }
 .marquee-track li { display: inline-flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 600; color: #2a2a33; letter-spacing: -0.01em; white-space: nowrap; }
-.marquee-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; color: var(--c-primary); background: var(--c-primary-soft); }
-.marquee-track li:nth-child(3n + 2) .marquee-icon { color: #179c50; background: var(--c-green-soft); }
-.marquee-track li:nth-child(3n) .marquee-icon { color: #e0543b; background: #fdeeea; }
+.marquee-icon { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 10px; overflow: hidden; color: #111; background: #f3f3f5; }
+.marquee-icon .icon { display: block; }
+.marquee-icon--rust { color: #000; background: #f3f3f5; }
+.marquee-icon--react { color: #61dafb; background: #20232a; }
+.marquee-icon--expo { color: #1c2024; background: #f0f1f2; }
+.marquee-icon--typescript { color: #3178c6; background: #fff; }
+.marquee-icon--swift { color: #f05138; background: #fff; }
+.marquee-icon--websocket { background: #eef6e8; }
+.marquee-icon--mdns { color: #fff; background: #0b5cab; }
+.marquee-icon--windows { color: #0078d4; background: #e7f3fb; }
 @keyframes marquee { to { transform: translateX(calc(-50% - 32px)); } }
 
 /* ---------- Split heads ---------- */

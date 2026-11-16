@@ -1,14 +1,15 @@
 ---
 import Icon from './Icon.astro';
+
 const items = [
-  { name: 'Rust', icon: 'Cpu' },
-  { name: 'React Native', icon: 'Atom' },
-  { name: 'Expo', icon: 'Layers' },
-  { name: 'TypeScript', icon: 'Code2' },
-  { name: 'SwiftUI', icon: 'Feather' },
-  { name: 'WebSocket', icon: 'Plug' },
-  { name: 'mDNS', icon: 'Radar' },
-  { name: 'Win32', icon: 'AppWindow' },
+  { name: 'Rust', icon: 'RustLogo', brand: 'rust', size: 22 },
+  { name: 'React Native', icon: 'ReactLogo', brand: 'react', size: 22 },
+  { name: 'Expo', icon: 'ExpoLogo', brand: 'expo', size: 20 },
+  { name: 'TypeScript', icon: 'TypeScriptLogo', brand: 'typescript', size: 36, badge: true },
+  { name: 'SwiftUI', icon: 'SwiftLogo', brand: 'swift', size: 36, badge: true },
+  { name: 'WebSocket', icon: 'WebSocketLogo', brand: 'websocket', size: 30 },
+  { name: 'mDNS', icon: 'MdnsLogo', brand: 'mdns', size: 34, badge: true },
+  { name: 'Win32', icon: 'WindowsLogo', brand: 'windows', size: 20 },
 ];
 ---
 
@@ -20,7 +21,9 @@ const items = [
         {
           [...items, ...items].map((item, i) => (
             <li aria-hidden={i >= items.length ? 'true' : undefined}>
-              <span class="marquee-icon"><Icon name={item.icon} size={22} strokeWidth={2} /></span>
+              <span class:list={['marquee-icon', `marquee-icon--${item.brand}`, { 'marquee-icon--badge': item.badge }]}>
+                <Icon name={item.icon} size={item.size} />
+              </span>
               {item.name}
             </li>
           ))
