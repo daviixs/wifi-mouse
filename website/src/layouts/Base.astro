@@ -77,6 +77,9 @@ const jsonLdBlocks = pageJsonLd ? (Array.isArray(pageJsonLd) ? pageJsonLd : [pag
     <meta name="twitter:image" content={ogImage} />
 
     {jsonLdBlocks.map((block) => <script type="application/ld+json" set:html={JSON.stringify(block).replace(/</g, '\\u003c')} />)}
+    <!-- Cloudflare Web Analytics -->
+    <script is:inline defer type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "f485d6676ca84050af45ea8b1999d90d"}'></script>
+    <!-- End Cloudflare Web Analytics -->
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
